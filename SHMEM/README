@@ -50,10 +50,10 @@ ISx is Scalable Integer Sort Application
 
 * ISx uses an uniform random key distribution and guarantees load balance.  
 
-* ISx includes a verificaion stage.
+* ISx includes a verification stage.
 
 * ISx is not a benchmark. It does not define fixed problems that can be used 
-  to rank systems. Furthermore ISx has not been optimimzed for the features 
+  to rank systems. Furthermore ISx has not been optimzed for the features 
   of any particular system.
 
 * ISx has been presented at the PGAS 2015 conference 
