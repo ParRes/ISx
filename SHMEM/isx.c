@@ -429,7 +429,7 @@ static inline KEY_TYPE * exchange_keys(int const * restrict const send_offsets,
     const long long int write_offset_into_target = shmem_longlong_fadd(&receive_offset, (long long int)my_send_size, target_pe);
 
 #ifdef DEBUG
-    printf("Rank: %d Target: %d Offset into target: %d Offset into myself: %d Send Size: %d\n",
+    printf("Rank: %d Target: %d Offset into target: %lld Offset into myself: %d Send Size: %d\n",
         my_rank, target_pe, write_offset_into_target, read_offset_from_self, my_send_size);
 #endif
 
@@ -443,9 +443,7 @@ static inline KEY_TYPE * exchange_keys(int const * restrict const send_offsets,
 
   (*my_bucket_size) = &receive_offset; 
 
-#ifdef BARRIER_ATA
   shmem_barrier_all();
-#endif
 
   timer_stop(&timers[TIMER_ATA_KEYS]);
   timer_count(&timers[TIMER_ATA_KEYS], total_keys_sent);
@@ -453,7 +451,7 @@ static inline KEY_TYPE * exchange_keys(int const * restrict const send_offsets,
 #ifdef DEBUG
   wait_my_turn();
   char msg[1024];
-  sprintf(msg,"Rank %d: Bucket Size %d | Total Keys Sent: %d | Keys after exchange:", 
+  sprintf(msg,"Rank %d: Bucket Size %lld | Total Keys Sent: %d | Keys after exchange:", 
                         my_rank, **my_bucket_size, total_keys_sent);
   for(int i = 0; i < **my_bucket_size; ++i){
     if(i < PRINT_MAX)
