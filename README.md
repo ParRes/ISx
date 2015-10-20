@@ -89,8 +89,10 @@ example command lines (assuming aprun) for 2^27 keys (=134217728)
 
 Strong:
  aprun -n 24 -N 4 ./bin/isx.strong 24 134217728 output_strong
+ 
 Weak:
  aprun -n 24 -N 4 ./bin/isx.weak 24 134217728 output_weak
+ 
 Weak_iso:
  Note that the iso-bucket width is specified in params.h
  aprun -n 24 -N 4 ./bin/isx.weak_iso 24 134217728 output_weak_iso
