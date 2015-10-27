@@ -97,3 +97,6 @@ Weak_iso:
  Note that the iso-bucket width is specified in params.h
  aprun -n 24 -N 4 ./bin/isx.weak_iso 24 134217728 output_weak_iso
 
+Note: timing measurements (see timer.c) are obtained by calls to clock_gettime
+with the clk_id argument set to CLOCK_MONOTONIC, however not all systems support this clk_id.
+For such situations, clk_id should be changed to CLOCK_REALTIME, which is supported by all systems.
