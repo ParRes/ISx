@@ -73,7 +73,6 @@ int main(int argc,  char ** argv)
 
   bucket_sort();
 
-  //report_topology();
 
   log_times(log_file);
 
