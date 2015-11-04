@@ -72,8 +72,6 @@ typedef int KEY_TYPE;
 #define NUM_ITERATIONS (1u)
 #define BURN_IN (1u)
 
-#define BARRIER_ATA
-
 
 // Specifies if the all2all uses a per PE randomized target list
 //#define PERMUTE

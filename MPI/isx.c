@@ -29,7 +29,8 @@ LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
 ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE 
 POSSIBILITY OF SUCH DAMAGE.
 */
-#include <shmem.h>
+
+#include <mpi.h>
 #include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -46,12 +47,6 @@ POSSIBILITY OF SUCH DAMAGE.
 
 #define ROOT_PE 0
 
-// Needed for shmem collective operations
-int pWrk[_SHMEM_REDUCE_MIN_WRKDATA_SIZE];
-double dWrk[_SHMEM_REDUCE_SYNC_SIZE];
-long long int llWrk[_SHMEM_REDUCE_MIN_WRKDATA_SIZE];
-long pSync[_SHMEM_REDUCE_SYNC_SIZE];
-
 uint64_t NUM_PES; // Number of parallel workers
 uint64_t TOTAL_KEYS; // Total number of keys across all PEs
 uint64_t NUM_KEYS_PER_PE; // Number of keys generated on each PE
@@ -59,32 +54,30 @@ uint64_t NUM_BUCKETS; // The number of buckets in the bucket sort
 uint64_t BUCKET_WIDTH; // The size of each bucket
 uint64_t MAX_KEY_VAL; // The maximum possible generated key value
 
-volatile int whose_turn;
+int my_rank;
+int comm_size;
 
-long long int receive_offset = 0;
-
-
-#define KEY_BUFFER_SIZE (1uLL<<28uLL)
-
-// The receive array for the All2All exchange
-KEY_TYPE my_bucket_keys[KEY_BUFFER_SIZE];
 
 #ifdef PERMUTE
 int * permute_array;
 #endif
 
-int main(const int argc,  char ** argv)
+int main(int argc,  char ** argv)
 {
-  start_pes(0);
-
-  init_shmem_sync_array(pSync); 
+  //start_pes(0);
+  MPI_Init(&argc, &argv);
+  MPI_Comm_rank(MPI_COMM_WORLD, &my_rank );
+  MPI_Comm_size(MPI_COMM_WORLD, &comm_size);
 
   char * log_file = parse_params(argc, argv);
 
   bucket_sort();
 
+  //report_topology();
 
   log_times(log_file);
+
+  MPI_Finalize();
 }
 
 
@@ -94,7 +87,7 @@ static char * parse_params(const int argc, char ** argv)
 {
   if(argc != 4)
   {
-    if( _my_pe() == 0){
+    if( my_rank == 0){
       printf("Usage:  \n");
       printf("  ./%s <num_pes> <total num keys(strong) | keys per pe(weak)> <log_file>\n",argv[0]);
     }
@@ -135,7 +128,7 @@ static char * parse_params(const int argc, char ** argv)
 
     default:
       {
-        if(_my_pe() == 0){
+        if(my_rank == 0){
           printf("Invalid scaling option! See params.h to define the scaling option.\n");
         }
         exit(0);
@@ -149,10 +142,10 @@ static char * parse_params(const int argc, char ** argv)
   assert(MAX_KEY_VAL > NUM_PES);
   assert(NUM_BUCKETS > 0);
   assert(BUCKET_WIDTH > 0);
-  assert(_num_pes() == NUM_PES);
+  assert(comm_size == NUM_PES);
 
-  if(_my_pe() == 0){
-    printf("ISx v1.0 \n");
+  if(my_rank == 0){
+    printf("ISx MPI v1.0 \n");
 #ifdef PERMUTE
     printf("Random Permute Used in ATA.\n");
 #endif
@@ -189,7 +182,7 @@ static void bucket_sort(void)
     // Reset timers after burn in 
     if(i == BURN_IN){ init_timers(NUM_ITERATIONS); } 
 
-    shmem_barrier_all();
+    MPI_Barrier(MPI_COMM_WORLD);
 
     timer_start(&timers[TIMER_TOTAL]);
 
@@ -203,25 +196,30 @@ static void bucket_sort(void)
 
     KEY_TYPE * my_local_bucketed_keys =  bucketize_local_keys(my_keys, local_bucket_offsets);
 
-    long long int * my_bucket_size;
-    KEY_TYPE * my_bucket_keys = exchange_keys(send_offsets, 
+    int * my_global_recv_counts = exchange_receive_counts(local_bucket_sizes);
+
+    int * my_global_recv_offsets = compute_receive_offsets(my_global_recv_counts);
+
+    long long int  my_bucket_size;
+    KEY_TYPE * my_bucket_keys = exchange_keys(my_global_recv_offsets,
+                                              my_global_recv_counts,
+                                              send_offsets, 
                                               local_bucket_sizes,
                                               my_local_bucketed_keys,
                                               &my_bucket_size);
 
-    int * my_local_key_counts = count_local_keys(my_bucket_keys, *my_bucket_size);
 
-    shmem_barrier_all();
+    int * my_local_key_counts = count_local_keys(my_bucket_keys, my_bucket_size);
+
+    MPI_Barrier(MPI_COMM_WORLD);
 
     timer_stop(&timers[TIMER_TOTAL]);
 
     // Only the last iteration is verified
     if(i == NUM_ITERATIONS) { 
-      verify_results(my_local_key_counts, my_bucket_keys, *my_bucket_size);
+      verify_results(my_local_key_counts, my_bucket_keys, my_bucket_size);
     }
 
-    // Reset receive_offset used in exchange_keys
-    receive_offset = 0;
 
     free(my_local_bucketed_keys);
     free(my_keys);
@@ -229,8 +227,9 @@ static void bucket_sort(void)
     free(local_bucket_offsets);
     free(send_offsets);
     free(my_local_key_counts);
+    free(my_bucket_keys);
 
-    shmem_barrier_all();
+    MPI_Barrier(MPI_COMM_WORLD);
   }
 }
 
@@ -254,9 +253,8 @@ static KEY_TYPE * make_input(void)
   timer_stop(&timers[TIMER_INPUT]);
 
 #ifdef DEBUG
-  wait_my_turn();
+  
   char msg[1024];
-  const int my_rank = _my_pe();
   sprintf(msg,"Rank %d: Initial Keys: ", my_rank);
   for(int i = 0; i < NUM_KEYS_PER_PE; ++i){
     if(i < PRINT_MAX)
@@ -265,7 +263,7 @@ static KEY_TYPE * make_input(void)
   sprintf(msg + strlen(msg),"\n");
   printf("%s",msg);
   fflush(stdout);
-  my_turn_complete();
+  
 #endif
   return my_keys;
 }
@@ -277,8 +275,7 @@ static KEY_TYPE * make_input(void)
  */
 static inline int * count_local_bucket_sizes(KEY_TYPE const * restrict const my_keys)
 {
-  const int my_rank = _my_pe();
-  int * restrict const local_bucket_sizes = malloc(NUM_BUCKETS * sizeof(int));
+  int * restrict const local_bucket_sizes =  malloc(NUM_BUCKETS * sizeof(int));
 
   timer_start(&timers[TIMER_BCOUNT]);
 
@@ -292,7 +289,7 @@ static inline int * count_local_bucket_sizes(KEY_TYPE const * restrict const my_
   timer_stop(&timers[TIMER_BCOUNT]);
 
 #ifdef DEBUG
-  wait_my_turn();
+  
   char msg[1024];
   sprintf(msg,"Rank %d: local bucket sizes: ", my_rank);
   for(int i = 0; i < NUM_BUCKETS; ++i){
@@ -302,7 +299,7 @@ static inline int * count_local_bucket_sizes(KEY_TYPE const * restrict const my_
   sprintf(msg + strlen(msg),"\n");
   printf("%s",msg);
   fflush(stdout);
-  my_turn_complete();
+  
 #endif
 
   return local_bucket_sizes;
@@ -318,11 +315,11 @@ static inline int * count_local_bucket_sizes(KEY_TYPE const * restrict const my_
 static inline int * compute_local_bucket_offsets(int const * restrict const local_bucket_sizes,
                                                  int ** restrict send_offsets)
 {
-  int * restrict const local_bucket_offsets = malloc(NUM_BUCKETS * sizeof(int));
+  int * restrict const local_bucket_offsets =  malloc(NUM_BUCKETS * sizeof(int));
 
   timer_start(&timers[TIMER_BOFFSET]);
 
-  (*send_offsets) = malloc(NUM_BUCKETS * sizeof(int));
+  (*send_offsets) =  malloc(NUM_BUCKETS * sizeof(int));
 
   local_bucket_offsets[0] = 0;
   (*send_offsets)[0] = 0;
@@ -335,9 +332,8 @@ static inline int * compute_local_bucket_offsets(int const * restrict const loca
   timer_stop(&timers[TIMER_BOFFSET]);
 
 #ifdef DEBUG
-  wait_my_turn();
+  
   char msg[1024];
-  const int my_rank = _my_pe();
   sprintf(msg,"Rank %d: local bucket offsets: ", my_rank);
   for(int i = 0; i < NUM_BUCKETS; ++i){
     if(i < PRINT_MAX)
@@ -346,7 +342,7 @@ static inline int * compute_local_bucket_offsets(int const * restrict const loca
   sprintf(msg + strlen(msg),"\n");
   printf("%s",msg);
   fflush(stdout);
-  my_turn_complete();
+  
 #endif
   return local_bucket_offsets;
 }
@@ -374,9 +370,8 @@ static inline KEY_TYPE * bucketize_local_keys(KEY_TYPE const * restrict const my
   timer_stop(&timers[TIMER_BUCKETIZE]);
 
 #ifdef DEBUG
-  wait_my_turn();
+  
   char msg[1024];
-  const int my_rank = _my_pe();
   sprintf(msg,"Rank %d: local bucketed keys: ", my_rank);
   for(int i = 0; i < NUM_KEYS_PER_PE; ++i){
     if(i < PRINT_MAX)
@@ -385,85 +380,117 @@ static inline KEY_TYPE * bucketize_local_keys(KEY_TYPE const * restrict const my
   sprintf(msg + strlen(msg),"\n");
   printf("%s",msg);
   fflush(stdout);
-  my_turn_complete();
+  
 #endif
   return my_local_bucketed_keys;
 }
 
 
 /*
+ * Each PE tells every other PE how many elements will be sent to them
+ */
+static int * exchange_receive_counts(int const * restrict const local_bucket_sizes)
+{
+
+  int * restrict const my_global_recv_counts = malloc(NUM_PES * sizeof(int));
+
+  timer_start(&timers[TIMER_ATA_COUNTS]);
+
+  MPI_Alltoall(local_bucket_sizes,
+                1, MPI_INT,
+                my_global_recv_counts,
+                1, MPI_INT,
+                MPI_COMM_WORLD);
+
+  timer_stop(&timers[TIMER_ATA_COUNTS]);
+
+#ifdef DEBUG
+  MPI_Barrier(MPI_COMM_WORLD);
+  char msg[1024];
+  sprintf(msg,"Rank %d: global receive counts: ", my_rank);
+  for(int i = 0; i < NUM_BUCKETS; ++i){
+    sprintf(msg + strlen(msg),"%d ", my_global_recv_counts[i]);
+  }
+  sprintf(msg + strlen(msg),"\n");
+  printf("%s",msg);
+  fflush(stdout);
+#endif
+
+  return my_global_recv_counts;
+}
+
+/*
+ * Computes a prefix sum of the global receive counts to determine the write 
+ * offset for remote PEs into the local receiver array
+ */
+static int * compute_receive_offsets(int const * restrict const my_global_recv_counts)
+{
+  // +1 to store the total number of keys to be received
+  // so you know how large to make your receive array.
+  // Last element is the total number of keys to receive.
+  const int receive_offsets_size = NUM_PES + 1;
+
+  timer_start(&timers[TIMER_RECV_OFFSET]);
+  int * restrict const my_global_recv_offsets = malloc(receive_offsets_size * sizeof(int));
+
+  my_global_recv_offsets[0] = 0;
+
+  for(int i = 1; i < receive_offsets_size; ++i){
+    my_global_recv_offsets[i] = my_global_recv_offsets[i-1] + my_global_recv_counts[i-1];
+  }
+
+  timer_stop(&timers[TIMER_RECV_OFFSET]);
+
+#ifdef DEBUG
+  MPI_Barrier(MPI_COMM_WORLD);
+  char msg[1024];
+  sprintf(msg,"Rank %d: global receive offsets: ", my_rank);
+  for(int i = 0; i < NUM_BUCKETS; ++i){
+    sprintf(msg + strlen(msg),"%d ", my_global_recv_offsets[i]);
+  }
+  sprintf(msg + strlen(msg),"\n");
+  printf("%s",msg);
+  fflush(stdout);
+#endif
+
+  return my_global_recv_offsets;
+}
+
+/*
  * Each PE sends the contents of its local buckets to the PE that owns that bucket.
  */
-static inline KEY_TYPE * exchange_keys(int const * restrict const send_offsets,
-                                       int const * restrict const local_bucket_sizes,
-                                       KEY_TYPE const * restrict const my_local_bucketed_keys,
-                                       long long int ** my_bucket_size)
+static inline KEY_TYPE * exchange_keys( int const * restrict const global_recv_offsets,
+                                        int const * restrict const global_recv_counts,
+                                        int const * restrict const send_offsets,
+                                        int const * restrict const local_bucket_sizes,
+                                        KEY_TYPE const * restrict const my_local_bucketed_keys,
+                                        long long int * my_bucket_size)
 {
   timer_start(&timers[TIMER_ATA_KEYS]);
 
-  const int my_rank = _my_pe();
-  unsigned int total_keys_sent = 0;
+  //unsigned int total_keys_sent = 0;
+  (*my_bucket_size) = global_recv_offsets[NUM_PES];
 
-  // Keys destined for local key buffer can be written with memcpy
-  const long long int write_offset_into_self = shmem_longlong_fadd(&receive_offset, (long long int)local_bucket_sizes[my_rank], my_rank);
-  memcpy(&my_bucket_keys[write_offset_into_self], 
-         &my_local_bucketed_keys[send_offsets[my_rank]], 
-         local_bucket_sizes[my_rank]*sizeof(KEY_TYPE));
+  KEY_TYPE * restrict const my_bucket_keys = malloc((*my_bucket_size)*sizeof(KEY_TYPE));
 
+  MPI_Alltoallv(my_local_bucketed_keys, local_bucket_sizes, send_offsets, MPI_INT,
+                my_bucket_keys, global_recv_counts, global_recv_offsets, MPI_INT, 
+                MPI_COMM_WORLD);
 
-  for(int i = 0; i < NUM_PES; ++i){
-
-#ifdef PERMUTE
-    const int target_pe = permute_array[i];
-#elif INCAST
-    const int target_pe = i;
-#else
-    const int target_pe = (my_rank + i) % NUM_PES;
-#endif
-
-    // Local keys already written with memcpy
-    if(target_pe == my_rank){ continue; }
-
-    const int read_offset_from_self = send_offsets[target_pe];
-    const int my_send_size = local_bucket_sizes[target_pe];
-
-    const long long int write_offset_into_target = shmem_longlong_fadd(&receive_offset, (long long int)my_send_size, target_pe);
-
-#ifdef DEBUG
-    printf("Rank: %d Target: %d Offset into target: %d Offset into myself: %d Send Size: %d\n",
-        my_rank, target_pe, write_offset_into_target, read_offset_from_self, my_send_size);
-#endif
-
-    shmem_int_put(&(my_bucket_keys[write_offset_into_target]), 
-                  &(my_local_bucketed_keys[read_offset_from_self]), 
-                  my_send_size, 
-                  target_pe);
-
-    total_keys_sent += my_send_size;
-  }
-
-  (*my_bucket_size) = &receive_offset; 
-
-#ifdef BARRIER_ATA
-  shmem_barrier_all();
-#endif
-
+  MPI_Barrier(MPI_COMM_WORLD);
   timer_stop(&timers[TIMER_ATA_KEYS]);
-  timer_count(&timers[TIMER_ATA_KEYS], total_keys_sent);
 
 #ifdef DEBUG
-  wait_my_turn();
+  MPI_Barrier(MPI_COMM_WORLD);
   char msg[1024];
-  sprintf(msg,"Rank %d: Bucket Size %d | Total Keys Sent: %d | Keys after exchange:", 
-                        my_rank, **my_bucket_size, total_keys_sent);
-  for(int i = 0; i < **my_bucket_size; ++i){
+  sprintf(msg,"Rank %d: Bucket Size %lld | | Keys after exchange:", my_rank, *my_bucket_size);
+  for(int i = 0; i < *my_bucket_size; ++i){
     if(i < PRINT_MAX)
     sprintf(msg + strlen(msg),"%d ", my_bucket_keys[i]);
   }
   sprintf(msg + strlen(msg),"\n");
   printf("%s",msg);
   fflush(stdout);
-  my_turn_complete();
 #endif
 
   return my_bucket_keys;
@@ -484,7 +511,6 @@ static inline int * count_local_keys(KEY_TYPE const * restrict const my_bucket_k
 
   timer_start(&timers[TIMER_SORT]);
 
-  const int my_rank = _my_pe();
   const int my_min_key = my_rank * BUCKET_WIDTH;
 
   // Count the occurences of each key in my bucket
@@ -499,7 +525,7 @@ static inline int * count_local_keys(KEY_TYPE const * restrict const my_bucket_k
   timer_stop(&timers[TIMER_SORT]);
 
 #ifdef DEBUG
-  wait_my_turn();
+  
   char msg[4096];
   sprintf(msg,"Rank %d: Bucket Size %lld | Local Key Counts:", my_rank, my_bucket_size);
   for(int i = 0; i < BUCKET_WIDTH; ++i){
@@ -509,7 +535,7 @@ static inline int * count_local_keys(KEY_TYPE const * restrict const my_bucket_k
   sprintf(msg + strlen(msg),"\n");
   printf("%s",msg);
   fflush(stdout);
-  my_turn_complete();
+  
 #endif
 
   return my_local_key_counts;
@@ -525,11 +551,10 @@ static void verify_results(int const * restrict const my_local_key_counts,
                            const long long int my_bucket_size)
 {
 
-  shmem_barrier_all();
+  MPI_Barrier(MPI_COMM_WORLD);
 
   int passed = 1;
 
-  const int my_rank = _my_pe();
 
   const int my_min_key = my_rank * BUCKET_WIDTH;
   const int my_max_key = (my_rank+1) * BUCKET_WIDTH - 1;
@@ -545,25 +570,25 @@ static void verify_results(int const * restrict const my_local_key_counts,
   }
 
   // Verify the sum of the key population equals the expected bucket size
-  long long int bucket_size_test = 0;
+  int bucket_size_test = 0;
   for(int i = 0; i < BUCKET_WIDTH; ++i){
-    bucket_size_test +=  my_local_key_counts[i];
+    bucket_size_test += my_local_key_counts[i];
   }
   if(bucket_size_test != my_bucket_size){
       printf("Rank %d Failed Verification!\n",my_rank);
-      printf("Actual Bucket Size: %lld Should be %lld\n", bucket_size_test, my_bucket_size);
+      printf("Actual Bucket Size: %d Should be %lld\n", bucket_size_test, my_bucket_size);
       passed = 0;
   }
 
   // Verify the final number of keys equals the initial number of keys
-  static long long int total_num_keys = 0;
-  shmem_longlong_sum_to_all(&total_num_keys, &my_bucket_size, 1, 0, 0, NUM_PES, llWrk, pSync);
-  shmem_barrier_all();
+  long long int total_num_keys = 0;
+  MPI_Allreduce(&my_bucket_size, &total_num_keys, 1, MPI_LONG_LONG_INT, MPI_SUM, MPI_COMM_WORLD);
 
   if(total_num_keys != (long long int)(NUM_KEYS_PER_PE * NUM_PES)){
     if(my_rank == ROOT_PE){
       printf("Verification Failed!\n");
-      printf("Actual total number of keys: %lld Expected %llu\n", total_num_keys, NUM_KEYS_PER_PE * NUM_PES );
+      printf("Actual total number of keys: %llu Expected %llu\n", 
+                        total_num_keys,   NUM_KEYS_PER_PE * NUM_PES );
       passed = 0;
     }
   }
@@ -582,7 +607,7 @@ static void log_times(char * log_file)
     timers[i].all_counts = gather_rank_counts(&timers[i]);
   }
 
-  if(_my_pe() == ROOT_PE)
+  if(my_rank == ROOT_PE)
   {
     int print_names = 0;
     if(file_exists(log_file) != 1){
@@ -653,7 +678,7 @@ static void print_timer_names(FILE * fp)
  */
 static void print_run_info(FILE * fp)
 {
-  fprintf(fp,"SHMEM\t");
+  fprintf(fp,"MPI\t");
   fprintf(fp,"NUM_PES %llu\t", NUM_PES);
   fprintf(fp,"Max_Key %llu\t", MAX_KEY_VAL); 
   fprintf(fp,"Num_Iters %u\t", NUM_ITERATIONS);
@@ -719,21 +744,14 @@ static double * gather_rank_times(_timer_t * const timer)
 {
   if(timer->seconds_iter > 0) {
 
-    assert(timer->seconds_iter == timer->num_iters);
-
     const unsigned int num_records = NUM_PES * timer->seconds_iter;
 
-    double * my_times = shmalloc(timer->seconds_iter * sizeof(double));
-    memcpy(my_times, timer->seconds, timer->seconds_iter * sizeof(double));
+    double * restrict const all_times = malloc( num_records * sizeof(double));
 
-    double * all_times = shmalloc( num_records * sizeof(double));
-
-    shmem_barrier_all();
-
-    shmem_fcollect64(all_times, my_times, timer->seconds_iter, 0, 0, NUM_PES, pSync);
-    shmem_barrier_all();
-
-    shfree(my_times);
+    MPI_Barrier(MPI_COMM_WORLD);
+    MPI_Allgather(timer->seconds, timer->seconds_iter, MPI_DOUBLE,
+                  all_times, timer->seconds_iter, MPI_DOUBLE,
+                  MPI_COMM_WORLD);
 
     return all_times;
   }
@@ -748,49 +766,32 @@ static double * gather_rank_times(_timer_t * const timer)
 static unsigned int * gather_rank_counts(_timer_t * const timer)
 {
   if(timer->count_iter > 0){
-    const unsigned int num_records = NUM_PES * timer->num_iters;
+    const unsigned int num_records = NUM_PES * timer->count_iter;
 
-    unsigned int * my_counts = shmalloc(timer->num_iters * sizeof(unsigned int));
-    memcpy(my_counts, timer->count, timer->num_iters*sizeof(unsigned int));
+    unsigned int * restrict const all_counts = malloc( num_records * sizeof(unsigned int) );
 
-    unsigned int * all_counts = shmalloc( num_records * sizeof(unsigned int) );
+    MPI_Barrier(MPI_COMM_WORLD);
 
-    shmem_barrier_all();
-
-    shmem_collect32(all_counts, my_counts, timer->num_iters, 0, 0, NUM_PES, pSync);
-
-    shmem_barrier_all();
-
-    shfree(my_counts);
+    MPI_Allgather(timer->count, timer->count_iter, MPI_UNSIGNED,
+                  all_counts, timer->count_iter, MPI_UNSIGNED,
+                  MPI_COMM_WORLD);
 
     return all_counts;
   }
   else{
     return NULL;
   }
-
 }
 /*
  * Seeds each rank based on the rank number and time
  */
 static inline pcg32_random_t seed_my_rank(void)
 {
-  const unsigned int my_rank = _my_pe();
   pcg32_random_t rng;
   pcg32_srandom_r(&rng, (uint64_t) my_rank, (uint64_t) my_rank );
   return rng;
 }
 
-/*
- * Initializes the work array required for SHMEM collective functions
- */
-static void init_shmem_sync_array(long * restrict const pSync)
-{
-  for(int i = 0; i < _SHMEM_REDUCE_SYNC_SIZE; ++i){
-    pSync[i] = _SHMEM_SYNC_VALUE;
-  }
-  shmem_barrier_all();
-}
 
 /*
  * Tests whether or not a file exists. 
@@ -810,31 +811,6 @@ static int file_exists(char * filename)
 
 }
 
-#ifdef DEBUG
-static void wait_my_turn()
-{
-  shmem_barrier_all();
-  whose_turn = 0;
-  shmem_barrier_all();
-  const int my_rank = _my_pe();
-
-  shmem_int_wait_until((int*)&whose_turn, SHMEM_CMP_EQ, my_rank);
-  sleep(1);
-
-}
-
-static void my_turn_complete()
-{
-  const int my_rank = _my_pe();
-  const int next_rank = my_rank+1;
-
-  if(my_rank < (NUM_PES-1)){ // Last rank updates no one
-    shmem_int_put((int *) &whose_turn, &next_rank, 1, next_rank);
-  }
-  shmem_barrier_all();
-}
-#endif
-
 #ifdef PERMUTE
 /*
  * Creates a randomly ordered array of PEs used in the exchange_keys function
@@ -842,7 +818,7 @@ static void my_turn_complete()
 static void create_permutation_array()
 {
 
-  permute_array = (int *) malloc( NUM_PES * sizeof(int) );
+  permute_array = malloc( NUM_PES * sizeof(int) );
 
   for(int i = 0; i < NUM_PES; ++i){
     permute_array[i] = i;
