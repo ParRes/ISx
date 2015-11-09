@@ -28,8 +28,6 @@ WEAKISO_OBJS := $(SRCS:.c=.o_wi)
 WEAKISO_OBJS := $(addprefix $(OBJDIR)/,$(WEAKISO_OBJS))
 
 all: $(STRONG_EXE) $(WEAK_EXE) $(WEAKISO_EXE)
-	@mkdir -p $(OBJDIR)
-	@mkdir -p $(BINDIR)
 
 optimized: CFLAGS += $(OPTFLAGS)
 optimized: all
@@ -38,21 +36,27 @@ debug: CFLAGS += $(DEBUGFLAGS)
 debug: all
 
 $(STRONG_EXE):$(STRONG_OBJS)
+	@mkdir -p $(BINDIR)
 	$(LD) $(STRONG_OBJS) -o $(BINDIR)/$(STRONG_EXE) $(LDLIBS) $(LDFLAGS)
 
 $(WEAK_EXE):$(WEAK_OBJS)
+	@mkdir -p $(BINDIR)
 	$(LD) $(WEAK_OBJS) -o $(BINDIR)/$(WEAK_EXE) $(LDLIBS) $(LDFLAGS)
 
 $(WEAKISO_EXE):$(WEAKISO_OBJS)
+	@mkdir -p $(BINDIR)
 	$(LD) $(WEAKISO_OBJS) -o $(BINDIR)/$(WEAKISO_EXE) $(LDLIBS) $(LDFLAGS)
 
 $(OBJDIR)/%.o_s : %.c
+	@mkdir -p $(OBJDIR)
 	$(CC) $(CFLAGS) -D SCALING_OPTION=$(STRONG) -c $< -o $@
 
 $(OBJDIR)/%.o_w: %.c
+	@mkdir -p $(OBJDIR)
 	$(CC) $(CFLAGS) -D SCALING_OPTION=$(WEAK) -c $< -o $@
 
 $(OBJDIR)/%.o_wi: %.c
+	@mkdir -p $(OBJDIR)
 	$(CC) $(CFLAGS) -D SCALING_OPTION=$(WEAKISO) -c $< -o $@
 
 clean:
