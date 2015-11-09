@@ -76,7 +76,7 @@ int * permute_array;
 
 int main(const int argc,  char ** argv)
 {
-  start_pes(0);
+  shmem_init();
 
   init_shmem_sync_array(pSync); 
 
@@ -87,6 +87,8 @@ int main(const int argc,  char ** argv)
 
   log_times(log_file);
 
+  shmem_finalize();
+
 }
 
 
@@ -96,7 +98,7 @@ static char * parse_params(const int argc, char ** argv)
 {
   if(argc != 4)
   {
-    if( _my_pe() == 0){
+    if( shmem_my_pe() == 0){
       printf("Usage:  \n");
       printf("  ./%s <num_pes> <total num keys(strong) | keys per pe(weak)> <log_file>\n",argv[0]);
     }
@@ -137,7 +139,7 @@ static char * parse_params(const int argc, char ** argv)
 
     default:
       {
-        if(_my_pe() == 0){
+        if(shmem_my_pe() == 0){
           printf("Invalid scaling option! See params.h to define the scaling option.\n");
         }
         exit(0);
@@ -151,9 +153,9 @@ static char * parse_params(const int argc, char ** argv)
   assert(MAX_KEY_VAL > NUM_PES);
   assert(NUM_BUCKETS > 0);
   assert(BUCKET_WIDTH > 0);
-  assert(_num_pes() == NUM_PES);
+  assert(shmem_n_pes() == NUM_PES);
 
-  if(_my_pe() == 0){
+  if(shmem_my_pe() == 0){
     printf("ISx v1.0 \n");
 #ifdef PERMUTE
     printf("Random Permute Used in ATA.\n");
@@ -258,7 +260,7 @@ static KEY_TYPE * make_input(void)
 #ifdef DEBUG
   wait_my_turn();
   char msg[1024];
-  const int my_rank = _my_pe();
+  const int my_rank = shmem_my_pe();
   sprintf(msg,"Rank %d: Initial Keys: ", my_rank);
   for(int i = 0; i < NUM_KEYS_PER_PE; ++i){
     if(i < PRINT_MAX)
@@ -279,7 +281,7 @@ static KEY_TYPE * make_input(void)
  */
 static inline int * count_local_bucket_sizes(KEY_TYPE const * restrict const my_keys)
 {
-  const int my_rank = _my_pe();
+  const int my_rank = shmem_my_pe();
   int * restrict const local_bucket_sizes = malloc(NUM_BUCKETS * sizeof(int));
 
   timer_start(&timers[TIMER_BCOUNT]);
@@ -339,7 +341,7 @@ static inline int * compute_local_bucket_offsets(int const * restrict const loca
 #ifdef DEBUG
   wait_my_turn();
   char msg[1024];
-  const int my_rank = _my_pe();
+  const int my_rank = shmem_my_pe();
   sprintf(msg,"Rank %d: local bucket offsets: ", my_rank);
   for(int i = 0; i < NUM_BUCKETS; ++i){
     if(i < PRINT_MAX)
@@ -378,7 +380,7 @@ static inline KEY_TYPE * bucketize_local_keys(KEY_TYPE const * restrict const my
 #ifdef DEBUG
   wait_my_turn();
   char msg[1024];
-  const int my_rank = _my_pe();
+  const int my_rank = shmem_my_pe();
   sprintf(msg,"Rank %d: local bucketed keys: ", my_rank);
   for(int i = 0; i < NUM_KEYS_PER_PE; ++i){
     if(i < PRINT_MAX)
@@ -402,7 +404,7 @@ static inline KEY_TYPE * exchange_keys(int const * restrict const send_offsets,
 {
   timer_start(&timers[TIMER_ATA_KEYS]);
 
-  const int my_rank = _my_pe();
+  const int my_rank = shmem_my_pe();
   unsigned int total_keys_sent = 0;
 
   // Keys destined for local key buffer can be written with memcpy
@@ -431,7 +433,7 @@ static inline KEY_TYPE * exchange_keys(int const * restrict const send_offsets,
     const long long int write_offset_into_target = shmem_longlong_fadd(&receive_offset, (long long int)my_send_size, target_pe);
 
 #ifdef DEBUG
-    printf("Rank: %d Target: %d Offset into target: %d Offset into myself: %d Send Size: %d\n",
+    printf("Rank: %d Target: %d Offset into target: %lld Offset into myself: %d Send Size: %d\n",
         my_rank, target_pe, write_offset_into_target, read_offset_from_self, my_send_size);
 #endif
 
@@ -453,7 +455,7 @@ static inline KEY_TYPE * exchange_keys(int const * restrict const send_offsets,
 #ifdef DEBUG
   wait_my_turn();
   char msg[1024];
-  sprintf(msg,"Rank %d: Bucket Size %d | Total Keys Sent: %d | Keys after exchange:", 
+  sprintf(msg,"Rank %d: Bucket Size %lld | Total Keys Sent: %u | Keys after exchange:", 
                         my_rank, receive_offset, total_keys_sent);
   for(int i = 0; i < receive_offset; ++i){
     if(i < PRINT_MAX)
@@ -482,7 +484,7 @@ static inline int * count_local_keys(KEY_TYPE const * restrict const my_bucket_k
 
   timer_start(&timers[TIMER_SORT]);
 
-  const int my_rank = _my_pe();
+  const int my_rank = shmem_my_pe();
   const int my_min_key = my_rank * BUCKET_WIDTH;
 
   // Count the occurences of each key in my bucket
@@ -526,7 +528,7 @@ static void verify_results(int const * restrict const my_local_key_counts,
 
   int passed = 1;
 
-  const int my_rank = _my_pe();
+  const int my_rank = shmem_my_pe();
 
   const int my_min_key = my_rank * BUCKET_WIDTH;
   const int my_max_key = (my_rank+1) * BUCKET_WIDTH - 1;
@@ -579,7 +581,7 @@ static void log_times(char * log_file)
     timers[i].all_counts = gather_rank_counts(&timers[i]);
   }
 
-  if(_my_pe() == ROOT_PE)
+  if(shmem_my_pe() == ROOT_PE)
   {
     int print_names = 0;
     if(file_exists(log_file) != 1){
@@ -772,7 +774,7 @@ static unsigned int * gather_rank_counts(_timer_t * const timer)
  */
 static inline pcg32_random_t seed_my_rank(void)
 {
-  const unsigned int my_rank = _my_pe();
+  const unsigned int my_rank = shmem_my_pe();
   pcg32_random_t rng;
   pcg32_srandom_r(&rng, (uint64_t) my_rank, (uint64_t) my_rank );
   return rng;
@@ -813,7 +815,7 @@ static void wait_my_turn()
   shmem_barrier_all();
   whose_turn = 0;
   shmem_barrier_all();
-  const int my_rank = _my_pe();
+  const int my_rank = shmem_my_pe();
 
   shmem_int_wait_until((int*)&whose_turn, SHMEM_CMP_EQ, my_rank);
   sleep(1);
@@ -822,7 +824,7 @@ static void wait_my_turn()
 
 static void my_turn_complete()
 {
-  const int my_rank = _my_pe();
+  const int my_rank = shmem_my_pe();
   const int next_rank = my_rank+1;
 
   if(my_rank < (NUM_PES-1)){ // Last rank updates no one
