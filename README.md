@@ -73,7 +73,6 @@ make debug
 make optimized
 - Compiles with optimization flags, including -DNDEBUG, which disables assert statements.
 
-Usage: ./isx <num_pes> <total_num_keys (strong) | keys_per_pe (weak)> <log_file>
 
 The params.h file has various definitions that may be modified to change application options.
 
@@ -98,5 +97,5 @@ Weak_iso:
  aprun -n 24 -N 4 ./bin/isx.weak_iso 24 134217728 output_weak_iso
 
 Note: timing measurements (see timer.c) are obtained by calls to clock_gettime
-with the clk_id argument set to CLOCK_MONOTONIC, however not all systems support this clk_id.
+with the clk_id argument set to CLOCK_MONOTONIC. However, not all systems support this clk_id.
 For such situations, clk_id should be changed to CLOCK_REALTIME, which is supported by all systems.
