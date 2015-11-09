@@ -28,6 +28,8 @@ WEAKISO_OBJS := $(SRCS:.c=.o_wi)
 WEAKISO_OBJS := $(addprefix $(OBJDIR)/,$(WEAKISO_OBJS))
 
 all: $(STRONG_EXE) $(WEAK_EXE) $(WEAKISO_EXE)
+	@mkdir -p $(OBJDIR)
+	@mkdir -p $(BINDIR)
 
 optimized: CFLAGS += $(OPTFLAGS)
 optimized: all
