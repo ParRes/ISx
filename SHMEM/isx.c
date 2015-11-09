@@ -62,6 +62,7 @@ uint64_t MAX_KEY_VAL; // The maximum possible generated key value
 volatile int whose_turn;
 
 long long int receive_offset = 0;
+long long int my_bucket_size = 0;
 
 
 #define KEY_BUFFER_SIZE (1uLL<<28uLL)
@@ -85,6 +86,7 @@ int main(const int argc,  char ** argv)
 
 
   log_times(log_file);
+
 }
 
 
@@ -203,13 +205,13 @@ static void bucket_sort(void)
 
     KEY_TYPE * my_local_bucketed_keys =  bucketize_local_keys(my_keys, local_bucket_offsets);
 
-    long long int * my_bucket_size;
     KEY_TYPE * my_bucket_keys = exchange_keys(send_offsets, 
                                               local_bucket_sizes,
-                                              my_local_bucketed_keys,
-                                              &my_bucket_size);
+                                              my_local_bucketed_keys);
 
-    int * my_local_key_counts = count_local_keys(my_bucket_keys, *my_bucket_size);
+    my_bucket_size = receive_offset;
+
+    int * my_local_key_counts = count_local_keys(my_bucket_keys);
 
     shmem_barrier_all();
 
@@ -217,7 +219,7 @@ static void bucket_sort(void)
 
     // Only the last iteration is verified
     if(i == NUM_ITERATIONS) { 
-      verify_results(my_local_key_counts, my_bucket_keys, *my_bucket_size);
+      verify_results(my_local_key_counts, my_bucket_keys);
     }
 
     // Reset receive_offset used in exchange_keys
@@ -396,8 +398,7 @@ static inline KEY_TYPE * bucketize_local_keys(KEY_TYPE const * restrict const my
  */
 static inline KEY_TYPE * exchange_keys(int const * restrict const send_offsets,
                                        int const * restrict const local_bucket_sizes,
-                                       KEY_TYPE const * restrict const my_local_bucketed_keys,
-                                       long long int ** my_bucket_size)
+                                       KEY_TYPE const * restrict const my_local_bucketed_keys)
 {
   timer_start(&timers[TIMER_ATA_KEYS]);
 
@@ -442,8 +443,6 @@ static inline KEY_TYPE * exchange_keys(int const * restrict const send_offsets,
     total_keys_sent += my_send_size;
   }
 
-  (*my_bucket_size) = &receive_offset; 
-
 #ifdef BARRIER_ATA
   shmem_barrier_all();
 #endif
@@ -455,8 +454,8 @@ static inline KEY_TYPE * exchange_keys(int const * restrict const send_offsets,
   wait_my_turn();
   char msg[1024];
   sprintf(msg,"Rank %d: Bucket Size %d | Total Keys Sent: %d | Keys after exchange:", 
-                        my_rank, **my_bucket_size, total_keys_sent);
-  for(int i = 0; i < **my_bucket_size; ++i){
+                        my_rank, receive_offset, total_keys_sent);
+  for(int i = 0; i < receive_offset; ++i){
     if(i < PRINT_MAX)
     sprintf(msg + strlen(msg),"%d ", my_bucket_keys[i]);
   }
@@ -476,8 +475,7 @@ static inline KEY_TYPE * exchange_keys(int const * restrict const send_offsets,
  * minimum key value to allow indexing from 0.
  * my_bucket_keys: All keys in my bucket unsorted [my_rank * BUCKET_WIDTH, (my_rank+1)*BUCKET_WIDTH)
  */
-static inline int * count_local_keys(KEY_TYPE const * restrict const my_bucket_keys, 
-                                          const long long int my_bucket_size)
+static inline int * count_local_keys(KEY_TYPE const * restrict const my_bucket_keys)
 {
   int * restrict const my_local_key_counts = malloc(BUCKET_WIDTH * sizeof(int));
   memset(my_local_key_counts, 0, BUCKET_WIDTH * sizeof(int));
@@ -521,8 +519,7 @@ static inline int * count_local_keys(KEY_TYPE const * restrict const my_bucket_k
  * Ensures the final number of keys is equal to the initial.
  */
 static void verify_results(int const * restrict const my_local_key_counts, 
-                           KEY_TYPE const * restrict const my_local_keys,
-                           const long long int my_bucket_size)
+                           KEY_TYPE const * restrict const my_local_keys)
 {
 
   shmem_barrier_all();

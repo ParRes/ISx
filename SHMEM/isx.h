@@ -91,14 +91,12 @@ static inline KEY_TYPE * bucketize_local_keys(KEY_TYPE const * restrict my_keys,
  */
 static inline KEY_TYPE * exchange_keys(int const * restrict const send_offsets,
                                 int const * restrict const local_bucket_sizes,
-                                KEY_TYPE const * restrict const local_bucketed_keys,
-                                long long int ** my_bucket_size);
+                                KEY_TYPE const * restrict const local_bucketed_keys);
 
 /*
  * Count the occurence of each key within my bucket. 
  */
-static inline int * count_local_keys(KEY_TYPE const * restrict const my_bucket_keys, 
-                                          const long long int my_bucket_size);
+static inline int * count_local_keys(KEY_TYPE const * restrict const my_bucket_keys);
 
 /*
  * Verifies the correctness of the sort. 
@@ -106,8 +104,7 @@ static inline int * count_local_keys(KEY_TYPE const * restrict const my_bucket_k
  * Ensures the final number of keys is equal to the initial.
  */
 static void verify_results(int const * restrict const my_local_key_counts, 
-                           KEY_TYPE const * restrict const my_local_keys,
-                           const long long int my_bucket_size);
+                           KEY_TYPE const * restrict const my_local_keys);
 
 /*
  * Seeds each rank based on the rank number and time
