@@ -747,7 +747,6 @@ static double * gather_rank_times(_timer_t * const timer)
 
     double * restrict const all_times = malloc( num_records * sizeof(double));
 
-    MPI_Barrier(MPI_COMM_WORLD);
     MPI_Allgather(timer->seconds, timer->seconds_iter, MPI_DOUBLE,
                   all_times, timer->seconds_iter, MPI_DOUBLE,
                   MPI_COMM_WORLD);
@@ -768,8 +767,6 @@ static unsigned int * gather_rank_counts(_timer_t * const timer)
     const unsigned int num_records = NUM_PES * timer->count_iter;
 
     unsigned int * restrict const all_counts = malloc( num_records * sizeof(unsigned int) );
-
-    MPI_Barrier(MPI_COMM_WORLD);
 
     MPI_Allgather(timer->count, timer->count_iter, MPI_UNSIGNED,
                   all_counts, timer->count_iter, MPI_UNSIGNED,
