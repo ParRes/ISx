@@ -1,0 +1,2 @@
+#!/bin/bash
+mpiexec.hydra -np $2 -f ./hostfile $1
