@@ -92,7 +92,8 @@ static inline KEY_TYPE * bucketize_local_keys(KEY_TYPE const * restrict my_keys,
  */
 static inline KEY_TYPE * exchange_keys( int const * restrict const send_offsets,
                                         int const * restrict const local_bucket_sizes,
-                                        KEY_TYPE const * restrict const my_local_bucketed_keys);
+                                        KEY_TYPE const * restrict const my_local_bucketed_keys,
+                                        long long int * my_bucket_size);
 
 /*
  * Count the occurence of each key within my bucket. 

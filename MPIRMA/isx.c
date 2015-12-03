@@ -197,15 +197,11 @@ static void bucket_sort(void)
 
     KEY_TYPE * my_local_bucketed_keys =  bucketize_local_keys(my_keys, local_bucket_offsets);
 
-    //int * my_global_recv_counts = exchange_receive_counts(local_bucket_sizes);
-
-    //int * my_global_recv_offsets = compute_receive_offsets(my_global_recv_counts);
-
     long long int  my_bucket_size;
     KEY_TYPE * my_bucket_keys = exchange_keys(send_offsets, 
                                               local_bucket_sizes,
-                                              my_local_bucketed_keys);
-
+                                              my_local_bucketed_keys,
+                                              &my_bucket_size);
 
     int * my_local_key_counts = count_local_keys(my_bucket_keys, my_bucket_size);
 
@@ -388,21 +384,21 @@ static inline KEY_TYPE * bucketize_local_keys(KEY_TYPE const * restrict const my
  */
 static inline KEY_TYPE * exchange_keys( int const * restrict const send_offsets,
                                         int const * restrict const local_bucket_sizes,
-                                        KEY_TYPE const * restrict const my_local_bucketed_keys)
+                                        KEY_TYPE const * restrict const my_local_bucketed_keys,
+                                        long long int * my_bucket_size)
 {
   timer_start(&timers[TIMER_ATA_KEYS]);
 
-  KEY_TYPE * my_bucket_keys;
+  KEY_TYPE * my_bucket_keys = NULL;
   int receive_offset;
   MPI_Win win_buffer;
   MPI_Win win_offset;
 
   // Allocate RMA window for receive buffer
-  MPI_Win_allocate(KEY_BUFFER_SIZE * sizeof(KEY_TYPE), sizeof(KEY_TYPE),
-                    MPI_INFO_NULL, MPI_COMM_WORLD,my_bucket_keys, &win_buffer);
+  MPI_Win_allocate(KEY_BUFFER_SIZE * sizeof(KEY_TYPE), sizeof(KEY_TYPE), MPI_INFO_NULL, MPI_COMM_WORLD, &my_bucket_keys, &win_buffer);
 
   // Expose offset counter used to atomically updated to point into receive buffer
-  MPI_Win_create(&receive_offset, sizeof(uint64_t), sizeof(uint64_t), MPI_INFO_NULL, MPI_COMM_WORLD, &win_offset);
+  MPI_Win_create(&receive_offset, sizeof(int), sizeof(int), MPI_INFO_NULL, MPI_COMM_WORLD, &win_offset);
 
   MPI_Win_lock_all(MPI_MODE_NOCHECK, win_buffer);
   MPI_Win_lock_all(MPI_MODE_NOCHECK, win_offset);
@@ -421,7 +417,7 @@ static inline KEY_TYPE * exchange_keys( int const * restrict const send_offsets,
 
     MPI_Win_flush(target, win_offset);
 
-    // Put keys into remote's buffer at the established offset pointer
+    // Put keys into remote's buffer at the fetched offset pointer
     MPI_Put(&(my_local_bucketed_keys[read_offset_from_self]), my_send_size, MPI_INT, 
         target, write_offset_into_target, my_send_size, MPI_INT, win_buffer);
 
@@ -432,6 +428,9 @@ static inline KEY_TYPE * exchange_keys( int const * restrict const send_offsets,
   MPI_Win_unlock_all(win_offset);
 
   MPI_Barrier(MPI_COMM_WORLD);
+
+  (*my_bucket_size) = receive_offset;
+
   timer_stop(&timers[TIMER_ATA_KEYS]);
 
 #ifdef DEBUG

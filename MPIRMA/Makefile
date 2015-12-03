@@ -2,7 +2,7 @@ CC = mpicc
 LD = $(CC)
 DEBUGFLAGS = -g -p -O0 -DDEBUG
 OPTFLAGS = -O3 -DNDEBUG -mavx
-CFLAGS += -Wall -Wextra -std=c99 -Wno-sign-compare -Wformat=0 -Wno-type-limits#$(OPTFLAGS) 
+CFLAGS += -Wall -Wextra -std=c99 -Wno-sign-compare -Wformat=0 -Wno-type-limits #$(OPTFLAGS) 
 LDLIBS += -lrt -lm
 LDFLAGS += 
 ### 
