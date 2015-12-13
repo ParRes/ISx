@@ -722,17 +722,17 @@ static double * gather_rank_times(_timer_t * const timer)
 
     const unsigned int num_records = NUM_PES * timer->seconds_iter;
 
-    double * my_times = shmalloc(timer->seconds_iter * sizeof(double));
+    double * my_times = shmem_malloc(timer->seconds_iter * sizeof(double));
     memcpy(my_times, timer->seconds, timer->seconds_iter * sizeof(double));
 
-    double * all_times = shmalloc( num_records * sizeof(double));
+    double * all_times = shmem_malloc( num_records * sizeof(double));
 
     shmem_barrier_all();
 
     shmem_fcollect64(all_times, my_times, timer->seconds_iter, 0, 0, NUM_PES, pSync);
     shmem_barrier_all();
 
-    shfree(my_times);
+    shmem_free(my_times);
 
     return all_times;
   }
@@ -749,10 +749,10 @@ static unsigned int * gather_rank_counts(_timer_t * const timer)
   if(timer->count_iter > 0){
     const unsigned int num_records = NUM_PES * timer->num_iters;
 
-    unsigned int * my_counts = shmalloc(timer->num_iters * sizeof(unsigned int));
+    unsigned int * my_counts = shmem_malloc(timer->num_iters * sizeof(unsigned int));
     memcpy(my_counts, timer->count, timer->num_iters*sizeof(unsigned int));
 
-    unsigned int * all_counts = shmalloc( num_records * sizeof(unsigned int) );
+    unsigned int * all_counts = shmem_malloc( num_records * sizeof(unsigned int) );
 
     shmem_barrier_all();
 
@@ -760,7 +760,7 @@ static unsigned int * gather_rank_counts(_timer_t * const timer)
 
     shmem_barrier_all();
 
-    shfree(my_counts);
+    shmem_free(my_counts);
 
     return all_counts;
   }
