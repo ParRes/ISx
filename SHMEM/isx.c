@@ -153,7 +153,7 @@ static char * parse_params(const int argc, char ** argv)
   assert(MAX_KEY_VAL > NUM_PES);
   assert(NUM_BUCKETS > 0);
   assert(BUCKET_WIDTH > 0);
-  assert(shmem_n_pes() == NUM_PES);
+  assert((uint64_t) shmem_n_pes() == NUM_PES);
 
   if(shmem_my_pe() == 0){
     printf("ISx v1.0 \n");
@@ -187,7 +187,7 @@ static void bucket_sort(void)
   create_permutation_array();
 #endif
 
-  for(int i = 0; i < (NUM_ITERATIONS + BURN_IN); ++i)
+  for(uint64_t i = 0; i < (NUM_ITERATIONS + BURN_IN); ++i)
   {
 
     // Reset timers after burn in 
@@ -251,7 +251,7 @@ static KEY_TYPE * make_input(void)
 
   pcg32_random_t rng = seed_my_rank();
 
-  for(int i = 0; i < NUM_KEYS_PER_PE; ++i) {
+  for(uint64_t i = 0; i < NUM_KEYS_PER_PE; ++i) {
     my_keys[i] = pcg32_boundedrand_r(&rng, MAX_KEY_VAL);
   }
 
@@ -262,7 +262,7 @@ static KEY_TYPE * make_input(void)
   char msg[1024];
   const int my_rank = shmem_my_pe();
   sprintf(msg,"Rank %d: Initial Keys: ", my_rank);
-  for(int i = 0; i < NUM_KEYS_PER_PE; ++i){
+  for(uint64_t i = 0; i < NUM_KEYS_PER_PE; ++i){
     if(i < PRINT_MAX)
     sprintf(msg + strlen(msg),"%d ", my_keys[i]);
   }
@@ -281,14 +281,13 @@ static KEY_TYPE * make_input(void)
  */
 static inline int * count_local_bucket_sizes(KEY_TYPE const * restrict const my_keys)
 {
-  const int my_rank = shmem_my_pe();
   int * restrict const local_bucket_sizes = malloc(NUM_BUCKETS * sizeof(int));
 
   timer_start(&timers[TIMER_BCOUNT]);
 
   init_array(local_bucket_sizes, NUM_BUCKETS);
 
-  for(int i = 0; i < NUM_KEYS_PER_PE; ++i){
+  for(uint64_t i = 0; i < NUM_KEYS_PER_PE; ++i){
     const uint32_t bucket_index = my_keys[i]/BUCKET_WIDTH;
     local_bucket_sizes[bucket_index]++;
   }
@@ -298,8 +297,9 @@ static inline int * count_local_bucket_sizes(KEY_TYPE const * restrict const my_
 #ifdef DEBUG
   wait_my_turn();
   char msg[1024];
+  const int my_rank = shmem_my_pe();
   sprintf(msg,"Rank %d: local bucket sizes: ", my_rank);
-  for(int i = 0; i < NUM_BUCKETS; ++i){
+  for(uint64_t i = 0; i < NUM_BUCKETS; ++i){
     if(i < PRINT_MAX)
     sprintf(msg + strlen(msg),"%d ", local_bucket_sizes[i]);
   }
@@ -331,7 +331,7 @@ static inline int * compute_local_bucket_offsets(int const * restrict const loca
   local_bucket_offsets[0] = 0;
   (*send_offsets)[0] = 0;
   int temp = 0;
-  for(int i = 1; i < NUM_BUCKETS; i++){
+  for(uint64_t i = 1; i < NUM_BUCKETS; i++){
     temp = local_bucket_offsets[i-1] + local_bucket_sizes[i-1];
     local_bucket_offsets[i] = temp; 
     (*send_offsets)[i] = temp;
@@ -343,7 +343,7 @@ static inline int * compute_local_bucket_offsets(int const * restrict const loca
   char msg[1024];
   const int my_rank = shmem_my_pe();
   sprintf(msg,"Rank %d: local bucket offsets: ", my_rank);
-  for(int i = 0; i < NUM_BUCKETS; ++i){
+  for(uint64_t i = 0; i < NUM_BUCKETS; ++i){
     if(i < PRINT_MAX)
     sprintf(msg + strlen(msg),"%d ", local_bucket_offsets[i]);
   }
@@ -366,7 +366,7 @@ static inline KEY_TYPE * bucketize_local_keys(KEY_TYPE const * restrict const my
 
   timer_start(&timers[TIMER_BUCKETIZE]);
 
-  for(int i = 0; i < NUM_KEYS_PER_PE; ++i){
+  for(uint64_t i = 0; i < NUM_KEYS_PER_PE; ++i){
     const KEY_TYPE key = my_keys[i];
     const uint32_t bucket_index = key / BUCKET_WIDTH;
     const uint32_t index = local_bucket_offsets[bucket_index]++;
@@ -382,7 +382,7 @@ static inline KEY_TYPE * bucketize_local_keys(KEY_TYPE const * restrict const my
   char msg[1024];
   const int my_rank = shmem_my_pe();
   sprintf(msg,"Rank %d: local bucketed keys: ", my_rank);
-  for(int i = 0; i < NUM_KEYS_PER_PE; ++i){
+  for(uint64_t i = 0; i < NUM_KEYS_PER_PE; ++i){
     if(i < PRINT_MAX)
     sprintf(msg + strlen(msg),"%d ", my_local_bucketed_keys[i]);
   }
@@ -414,7 +414,7 @@ static inline KEY_TYPE * exchange_keys(int const * restrict const send_offsets,
          local_bucket_sizes[my_rank]*sizeof(KEY_TYPE));
 
 
-  for(int i = 0; i < NUM_PES; ++i){
+  for(uint64_t i = 0; i < NUM_PES; ++i){
 
 #ifdef PERMUTE
     const int target_pe = permute_array[i];
@@ -457,7 +457,7 @@ static inline KEY_TYPE * exchange_keys(int const * restrict const send_offsets,
   char msg[1024];
   sprintf(msg,"Rank %d: Bucket Size %lld | Total Keys Sent: %u | Keys after exchange:", 
                         my_rank, receive_offset, total_keys_sent);
-  for(int i = 0; i < receive_offset; ++i){
+  for(long long int i = 0; i < receive_offset; ++i){
     if(i < PRINT_MAX)
     sprintf(msg + strlen(msg),"%d ", my_bucket_keys[i]);
   }
@@ -488,7 +488,7 @@ static inline int * count_local_keys(KEY_TYPE const * restrict const my_bucket_k
   const int my_min_key = my_rank * BUCKET_WIDTH;
 
   // Count the occurences of each key in my bucket
-  for(int i = 0; i < my_bucket_size; ++i){
+  for(long long int i = 0; i < my_bucket_size; ++i){
     const unsigned int key_index = my_bucket_keys[i] - my_min_key;
 
     assert(key_index >= 0);
@@ -502,7 +502,7 @@ static inline int * count_local_keys(KEY_TYPE const * restrict const my_bucket_k
   wait_my_turn();
   char msg[4096];
   sprintf(msg,"Rank %d: Bucket Size %lld | Local Key Counts:", my_rank, my_bucket_size);
-  for(int i = 0; i < BUCKET_WIDTH; ++i){
+  for(uint64_t i = 0; i < BUCKET_WIDTH; ++i){
     if(i < PRINT_MAX)
     sprintf(msg + strlen(msg),"%d ", my_local_key_counts[i]);
   }
@@ -534,7 +534,7 @@ static void verify_results(int const * restrict const my_local_key_counts,
   const int my_max_key = (my_rank+1) * BUCKET_WIDTH - 1;
 
   // Verify all keys are within bucket boundaries
-  for(int i = 0; i < my_bucket_size; ++i){
+  for(long long int i = 0; i < my_bucket_size; ++i){
     const int key = my_local_keys[i];
     if((key < my_min_key) || (key > my_max_key)){
       printf("Rank %d Failed Verification!\n",my_rank);
@@ -545,7 +545,7 @@ static void verify_results(int const * restrict const my_local_key_counts,
 
   // Verify the sum of the key population equals the expected bucket size
   long long int bucket_size_test = 0;
-  for(int i = 0; i < BUCKET_WIDTH; ++i){
+  for(uint64_t i = 0; i < BUCKET_WIDTH; ++i){
     bucket_size_test +=  my_local_key_counts[i];
   }
   if(bucket_size_test != my_bucket_size){
@@ -576,7 +576,7 @@ static void log_times(char * log_file)
 {
   FILE * fp = NULL;
 
-  for(int i = 0; i < TIMER_NTIMERS; ++i){
+  for(uint64_t i = 0; i < TIMER_NTIMERS; ++i){
     timers[i].all_times = gather_rank_times(&timers[i]);
     timers[i].all_counts = gather_rank_counts(&timers[i]);
   }
@@ -615,7 +615,7 @@ static void report_summary_stats(void)
   if(timers[TIMER_TOTAL].seconds_iter > 0) {
     const uint32_t num_records = NUM_PES * timers[TIMER_TOTAL].seconds_iter;
     double temp = 0.0;
-    for(int i = 0; i < num_records; ++i){
+    for(uint64_t i = 0; i < num_records; ++i){
       temp += timers[TIMER_TOTAL].all_times[i];
     }
       printf("Average total time (per PE): %f seconds\n", temp/num_records);
@@ -624,7 +624,7 @@ static void report_summary_stats(void)
   if(timers[TIMER_ATA_KEYS].seconds_iter >0) {
     const uint32_t num_records = NUM_PES * timers[TIMER_ATA_KEYS].seconds_iter;
     double temp = 0.0;
-    for(int i = 0; i < num_records; ++i){
+    for(uint64_t i = 0; i < num_records; ++i){
       temp += timers[TIMER_ATA_KEYS].all_times[i];
     }
     printf("Average all2all time (per PE): %f seconds\n", temp/num_records);
@@ -636,7 +636,7 @@ static void report_summary_stats(void)
  */
 static void print_timer_names(FILE * fp)
 {
-  for(int i = 0; i < TIMER_NTIMERS; ++i){
+  for(uint64_t i = 0; i < TIMER_NTIMERS; ++i){
     if(timers[i].seconds_iter > 0){
       fprintf(fp, "%s (sec)\t", timer_names[i]);
     }
@@ -698,7 +698,7 @@ static void print_timer_values(FILE * fp)
 {
   unsigned int num_records = NUM_PES * NUM_ITERATIONS; 
 
-  for(int i = 0; i < num_records; ++i) {
+  for(uint64_t i = 0; i < num_records; ++i) {
     for(int t = 0; t < TIMER_NTIMERS; ++t){
       if(timers[t].all_times != NULL){
         fprintf(fp,"%f\t", timers[t].all_times[i]);
@@ -785,7 +785,7 @@ static inline pcg32_random_t seed_my_rank(void)
  */
 static void init_shmem_sync_array(long * restrict const pSync)
 {
-  for(int i = 0; i < _SHMEM_REDUCE_SYNC_SIZE; ++i){
+  for(uint64_t i = 0; i < _SHMEM_REDUCE_SYNC_SIZE; ++i){
     pSync[i] = _SHMEM_SYNC_VALUE;
   }
   shmem_barrier_all();
@@ -843,7 +843,7 @@ static void create_permutation_array()
 
   permute_array = (int *) malloc( NUM_PES * sizeof(int) );
 
-  for(int i = 0; i < NUM_PES; ++i){
+  for(uint64_t i = 0; i < NUM_PES; ++i){
     permute_array[i] = i;
   }
 
@@ -859,7 +859,7 @@ static void shuffle(void * array, size_t n, size_t size)
   char * arr = array;
   size_t stride = size * sizeof(char);
   if(n > 1){
-    for(int i = 0; i < (n - 1); ++i){
+    for(size_t i = 0; i < (n - 1); ++i){
       size_t rnd = (size_t) rand();
       size_t j = i + rnd/(RAND_MAX/(n - i) + 1);
       memcpy(tmp, arr + j*stride, size);

@@ -51,7 +51,7 @@ _timer_t timers[TIMER_NTIMERS];
 
 void timer_reset(_timer_t * const timer, const unsigned int num_iters)
 {
-  for(int i = 0; i < num_iters; ++i) {
+  for(unsigned int i = 0; i < num_iters; ++i) {
     timer->seconds[i] = 0.0;
     timer->count[i] = 0;
   }
@@ -87,7 +87,7 @@ void report_times(void)
   for(int t = 0; t < TIMER_NTIMERS; ++t){
     if(timers[t].seconds_iter > 0){
       printf("%s\t", timer_names[t]);
-      for(int i = 0; i < timers[t].seconds_iter; ++i){
+      for(unsigned int i = 0; i < timers[t].seconds_iter; ++i){
         printf("%3.5f\t", timers[t].seconds[i]);
       }
       printf("\n");
@@ -95,7 +95,7 @@ void report_times(void)
 
     if(timers[t].count_iter > 0){
       printf("%s_COUNTS\t", timer_names[t]);
-      for(int i = 0; i < timers[t].count_iter; ++i){
+      for(unsigned int i = 0; i < timers[t].count_iter; ++i){
         printf("%d\t", timers[t].count[i]);
       }
       printf("\n");
