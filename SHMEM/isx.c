@@ -375,9 +375,10 @@ static inline KEY_TYPE * bucketize_local_keys(KEY_TYPE const * restrict const my
   for(uint64_t i = 0; i < NUM_KEYS_PER_PE; ++i){
     const KEY_TYPE key = my_keys[i];
     const uint32_t bucket_index = key / BUCKET_WIDTH;
-    const uint32_t index = local_bucket_offsets[bucket_index]++;
+    uint32_t index;
+    assert(local_bucket_offsets[bucket_index] >= 0);
+    index = local_bucket_offsets[bucket_index]++;
     assert(index < NUM_KEYS_PER_PE);
-    assert(index >= 0);
     my_local_bucketed_keys[index] = key;
   }
 
@@ -497,7 +498,7 @@ static inline int * count_local_keys(KEY_TYPE const * restrict const my_bucket_k
   for(long long int i = 0; i < my_bucket_size; ++i){
     const unsigned int key_index = my_bucket_keys[i] - my_min_key;
 
-    assert(key_index >= 0);
+    assert(my_bucket_keys[i] >= my_min_key);
     assert(key_index < BUCKET_WIDTH);
 
     my_local_key_counts[key_index]++;
