@@ -112,6 +112,14 @@ static void verify_results(int const * restrict const my_local_key_counts,
 static inline pcg32_random_t seed_my_rank(void);
 
 /*
+ * Provides a sequential ordering of PE operations
+ */
+#ifdef DEBUG
+static void wait_my_turn();
+static void my_turn_complete();
+#endif
+
+/*
  * Initializes the sync array needed by shmem collective operations.
  */
 static void init_shmem_sync_array(long * restrict const pSync);
