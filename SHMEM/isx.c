@@ -102,6 +102,8 @@ static char * parse_params(const int argc, char ** argv)
       printf("Usage:  \n");
       printf("  ./%s <num_pes> <total num keys(strong) | keys per pe(weak)> <log_file>\n",argv[0]);
     }
+
+    shmem_finalize();
     exit(0);
   }
 
@@ -142,6 +144,8 @@ static char * parse_params(const int argc, char ** argv)
         if(shmem_my_pe() == 0){
           printf("Invalid scaling option! See params.h to define the scaling option.\n");
         }
+
+        shmem_finalize();
         exit(0);
         break;
       }
