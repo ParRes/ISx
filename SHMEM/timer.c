@@ -35,6 +35,11 @@ POSSIBILITY OF SUCH DAMAGE.
 #include <time.h>
 #include <stdbool.h>
 
+#ifdef __MACH__
+#include <mach/clock.h>
+#include <mach/mach.h>
+#endif
+
 bool first_call = true;
 
 char const * const timer_names[] = {
@@ -106,12 +111,34 @@ void report_times(void)
 
 void timer_start(_timer_t * const timer)
 {
+#ifdef __MACH__
+  // OS X does not have clock_gettime, use clock_get_time
+  clock_serv_t cclock;
+  mach_timespec_t mts;
+  host_get_clock_service(mach_host_self(), CALENDAR_CLOCK, &cclock);
+  clock_get_time(cclock, &mts);
+  mach_port_deallocate(mach_task_self(), cclock);
+  timer->start.tv_sec = mts.tv_sec;
+  timer->start.tv_nsec = mts.tv_nsec;
+#else
   clock_gettime(CLOCK_MONOTONIC, &(timer->start));
+#endif
 }
 
 void timer_stop(_timer_t * const timer)
 {
+#ifdef __MACH__
+  // OS X does not have clock_gettime, use clock_get_time
+  clock_serv_t cclock;
+  mach_timespec_t mts;
+  host_get_clock_service(mach_host_self(), CALENDAR_CLOCK, &cclock);
+  clock_get_time(cclock, &mts);
+  mach_port_deallocate(mach_task_self(), cclock);
+  timer->stop.tv_sec = mts.tv_sec;
+  timer->stop.tv_nsec = mts.tv_nsec;
+#else
   clock_gettime(CLOCK_MONOTONIC, &(timer->stop));
+#endif
   timer->seconds[timer->seconds_iter] = (double) (timer->stop.tv_sec - timer->start.tv_sec);
   timer->seconds[timer->seconds_iter] += (double) (timer->stop.tv_nsec - timer->start.tv_nsec)*1e-9;
   timer->seconds_iter++;
