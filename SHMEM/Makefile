@@ -3,7 +3,7 @@ LD = $(CC)
 DEBUGFLAGS = -g -p -O0 -DDEBUG
 OPTFLAGS = -O3 -DNDEBUG -mavx
 CFLAGS += -Wall -Wextra -std=c99 #$(OPTFLAGS)
-LDLIBS += -lrt -lm
+LDLIBS += -lm
 LDFLAGS += 
 ### 
 # If you change these values, you must also change them in params.h

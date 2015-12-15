@@ -45,7 +45,7 @@ static char * parse_params(const int argc, char ** argv);
  * Each bucket is assigned to a PE and all keys belonging to a bucket are sent
  * to the corresponding PE. Each PE then performs a local sort of the keys in its bucket.
  */
-static void bucket_sort();
+static int bucket_sort();
 
 #ifdef PERMUTE
 /*
@@ -103,13 +103,21 @@ static inline int * count_local_keys(KEY_TYPE const * restrict const my_bucket_k
  * Ensures all keys after the exchange are within a PE's bucket boundaries.
  * Ensures the final number of keys is equal to the initial.
  */
-static void verify_results(int const * restrict const my_local_key_counts, 
+static int verify_results(int const * restrict const my_local_key_counts, 
                            KEY_TYPE const * restrict const my_local_keys);
 
 /*
  * Seeds each rank based on the rank number and time
  */
 static inline pcg32_random_t seed_my_rank(void);
+
+/*
+ * Provides a sequential ordering of PE operations
+ */
+#ifdef DEBUG
+static void wait_my_turn();
+static void my_turn_complete();
+#endif
 
 /*
  * Initializes the sync array needed by shmem collective operations.
