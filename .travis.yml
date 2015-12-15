@@ -1,0 +1,78 @@
+sudo: true
+language: c
+compiler:
+    #- clang
+    - gcc
+os:
+    - linux
+
+before_install:
+    - sudo apt-get update -qq
+    - sudo apt-get install -y dc openmpi-bin libopenmpi-dev
+    ## Build libfabric
+    - git clone https://github.com/ofiwg/libfabric.git src/libfabric
+    - cd src/libfabric
+    - ./autogen.sh
+    - ./configure --prefix=$HOME/opt/libfabric
+    - make -j 4
+    - make install
+    - export FI_LOG_LEVEL=error
+    - cd ../..
+    ## Build Hydra
+    - cd src
+    - wget http://www.mpich.org/static/downloads/3.2/hydra-3.2.tar.gz
+    - tar xvzf hydra-3.2.tar.gz
+    - cd hydra-3.2/
+    - ./configure --prefix=$HOME/opt/hydra
+    - make -j 4
+    - make install
+    - cd ../..
+    ## Build Sandia OpenSHMEM
+    - git clone https://github.com/regrant/sandia-shmem.git src/sandia-shmem
+    - cd src/sandia-shmem
+    - ./autogen.sh
+    - ./configure --with-ofi=$HOME/opt/libfabric/ --disable-fortran --prefix=$HOME/opt/sandia-shmem-ofi --enable-error-checking --enable-remote-virtual-addressing --enable-picky --enable-pmi-simple FCFLAGS="-fcray-pointer"
+    - make -j 4
+    - make install
+    - cd ../..
+
+install:
+    ## Fetch ISx
+    - git clone https://github.com/ParRes/ISx.git ISx
+
+script:
+    - export BASE_PATH=$PATH
+    - export BASE_LD_LIBRARY_PATH=$LD_LIBRARY_PATH
+    ###
+    ### Build and Run ISx (SHMEM)
+    ###
+    - export PATH=$HOME/opt/sandia-shmem-ofi/bin:$HOME/opt/hydra/bin:$BASE_PATH
+    - export LD_LIBRARY_PATH=$HOME/opt/sandia-shmem-ofi/lib:$BASE_LD_LIBRARY_PATH
+    - export OSHRUN_LAUNCHER="mpiexec.hydra"
+    - cd ISx/SHMEM
+    - make CC=oshcc
+    - mpiexec.hydra -np 4 ./bin/isx.strong 4 134217728 output_strong
+    - mpiexec.hydra -np 4 ./bin/isx.weak 4 33554432 output_weak
+    - mpiexec.hydra -np 4 ./bin/isx.weak_iso 4 33554432 output_weak_iso
+    - make clean
+    - cd ../..
+    ###
+    ### Build and Run ISx (MPI)
+    ###
+    - export PATH=$BASE_PATH
+    - export LD_LIBRARY_PATH=$BASE_LD_LIBRARY_PATH
+    - cd ISx/MPI
+    - make CC=mpicc.openmpi
+    - mpirun.openmpi -np 4 ./bin/isx.strong 4 134217728 output_strong
+    - mpirun.openmpi -np 4 ./bin/isx.weak 4 33554432 output_weak
+    - mpirun.openmpi -np 4 ./bin/isx.weak_iso 4 33554432 output_weak_iso
+    - make clean
+    - cd ../..
+
+notifications:
+  email:
+    recipients:
+      - james.dinan@intel.com
+      - ulf.r.hanebutte@intel.com
+    on_success: [change]
+    on_failure: [always] 
