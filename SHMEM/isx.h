@@ -45,7 +45,7 @@ static char * parse_params(const int argc, char ** argv);
  * Each bucket is assigned to a PE and all keys belonging to a bucket are sent
  * to the corresponding PE. Each PE then performs a local sort of the keys in its bucket.
  */
-static void bucket_sort();
+static int bucket_sort();
 
 #ifdef PERMUTE
 /*
@@ -103,7 +103,7 @@ static inline int * count_local_keys(KEY_TYPE const * restrict const my_bucket_k
  * Ensures all keys after the exchange are within a PE's bucket boundaries.
  * Ensures the final number of keys is equal to the initial.
  */
-static void verify_results(int const * restrict const my_local_key_counts, 
+static int verify_results(int const * restrict const my_local_key_counts, 
                            KEY_TYPE const * restrict const my_local_keys);
 
 /*
