@@ -163,11 +163,11 @@ static char * parse_params(const int argc, char ** argv)
 #ifdef PERMUTE
     printf("Random Permute Used in ATA.\n");
 #endif
-    printf("  Number of Keys per PE: %llu\n", NUM_KEYS_PER_PE);
-    printf("  Max Key Value: %llu\n", MAX_KEY_VAL);
-    printf("  Bucket Width: %llu\n", BUCKET_WIDTH);
+    printf("  Number of Keys per PE: %" PRIu64 "\n", NUM_KEYS_PER_PE);
+    printf("  Max Key Value: %" PRIu64 "\n", MAX_KEY_VAL);
+    printf("  Bucket Width: %" PRIu64 "\n", BUCKET_WIDTH);
     printf("  Number of Iterations: %u\n", NUM_ITERATIONS);
-    printf("  Number of PEs: %llu\n", NUM_PES);
+    printf("  Number of PEs: %" PRIu64 "\n", NUM_PES);
     printf("  %s Scaling!\n",scaling_msg);
     }
 
@@ -569,7 +569,7 @@ static int verify_results(int const * restrict const my_local_key_counts,
   if(total_num_keys != (long long int)(NUM_KEYS_PER_PE * NUM_PES)){
     if(my_rank == ROOT_PE){
       printf("Verification Failed!\n");
-      printf("Actual total number of keys: %lld Expected %llu\n", total_num_keys, NUM_KEYS_PER_PE * NUM_PES );
+      printf("Actual total number of keys: %lld Expected %" PRIu64 "\n", total_num_keys, NUM_KEYS_PER_PE * NUM_PES );
       error = 1;
     }
   }
@@ -662,22 +662,22 @@ static void print_timer_names(FILE * fp)
 static void print_run_info(FILE * fp)
 {
   fprintf(fp,"SHMEM\t");
-  fprintf(fp,"NUM_PES %llu\t", NUM_PES);
-  fprintf(fp,"Max_Key %llu\t", MAX_KEY_VAL); 
+  fprintf(fp,"NUM_PES %" PRIu64 "\t", NUM_PES);
+  fprintf(fp,"Max_Key %" PRIu64 "\t", MAX_KEY_VAL); 
   fprintf(fp,"Num_Iters %u\t", NUM_ITERATIONS);
 
   switch(SCALING_OPTION){
     case STRONG: {
-        fprintf(fp,"Strong Scaling: %llu total keys\t", NUM_KEYS_PER_PE * NUM_PES);
+        fprintf(fp,"Strong Scaling: %" PRIu64 " total keys\t", NUM_KEYS_PER_PE * NUM_PES);
         break;
       }
     case WEAK: {
-        fprintf(fp,"Weak Scaling: %llu keys per PE\t", NUM_KEYS_PER_PE);
+        fprintf(fp,"Weak Scaling: %" PRIu64 " keys per PE\t", NUM_KEYS_PER_PE);
         break;
       }
     case WEAK_ISOBUCKET: {
-        fprintf(fp,"Weak Scaling Constant Bucket Width: %llu keys per PE \t", NUM_KEYS_PER_PE);
-        fprintf(fp,"Constant Bucket Width: %llu\t", BUCKET_WIDTH);
+        fprintf(fp,"Weak Scaling Constant Bucket Width: %" PRIu64 "u keys per PE \t", NUM_KEYS_PER_PE);
+        fprintf(fp,"Constant Bucket Width: %" PRIu64 "\t", BUCKET_WIDTH);
         break;
       }
     default:

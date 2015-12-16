@@ -30,7 +30,8 @@ ISx is Scalable Integer Sort Application
 References:
 ISx, a Scalable Integer Sort for Co-design in the Exascale Era. 
 Ulf Hanebutte and Jacob Hemstad. Proc. Ninth Conf. on Partitioned Global Address Space 
-Programming Models (PGAS). Washington, DC. Oct 2015. http://hpcl.seas.gwu.edu/pgas15/
+Programming Models (PGAS). Washington, DC. Sep 2015. http://hpcl.seas.gwu.edu/pgas15/
+http://ieeexplore.ieee.org/xpl/mostRecentIssue.jsp?punumber=7306013
 
 Information about the NAS Parallel Benchmarks may be found here:
 https://www.nas.nasa.gov/publications/npb.html
