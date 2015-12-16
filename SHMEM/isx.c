@@ -82,13 +82,12 @@ int main(const int argc,  char ** argv)
 
   char * log_file = parse_params(argc, argv);
 
-  bucket_sort();
-
+  int err = bucket_sort();
 
   log_times(log_file);
 
   shmem_finalize();
-
+  return err;
 }
 
 
@@ -102,6 +101,8 @@ static char * parse_params(const int argc, char ** argv)
       printf("Usage:  \n");
       printf("  ./%s <num_pes> <total num keys(strong) | keys per pe(weak)> <log_file>\n",argv[0]);
     }
+
+    shmem_finalize();
     exit(0);
   }
 
@@ -142,6 +143,8 @@ static char * parse_params(const int argc, char ** argv)
         if(shmem_my_pe() == 0){
           printf("Invalid scaling option! See params.h to define the scaling option.\n");
         }
+
+        shmem_finalize();
         exit(0);
         break;
       }
@@ -178,8 +181,9 @@ static char * parse_params(const int argc, char ** argv)
  * Only iterations after the BURN_IN iterations are timed
  * Only the final iteration calls the verification function
  */
-static void bucket_sort(void)
+static int bucket_sort(void)
 {
+  int err = 0;
 
   init_timers(NUM_ITERATIONS);
 
@@ -221,7 +225,7 @@ static void bucket_sort(void)
 
     // Only the last iteration is verified
     if(i == NUM_ITERATIONS) { 
-      verify_results(my_local_key_counts, my_bucket_keys);
+      err = verify_results(my_local_key_counts, my_bucket_keys);
     }
 
     // Reset receive_offset used in exchange_keys
@@ -236,6 +240,8 @@ static void bucket_sort(void)
 
     shmem_barrier_all();
   }
+
+  return err;
 }
 
 
@@ -369,9 +375,10 @@ static inline KEY_TYPE * bucketize_local_keys(KEY_TYPE const * restrict const my
   for(uint64_t i = 0; i < NUM_KEYS_PER_PE; ++i){
     const KEY_TYPE key = my_keys[i];
     const uint32_t bucket_index = key / BUCKET_WIDTH;
-    const uint32_t index = local_bucket_offsets[bucket_index]++;
+    uint32_t index;
+    assert(local_bucket_offsets[bucket_index] >= 0);
+    index = local_bucket_offsets[bucket_index]++;
     assert(index < NUM_KEYS_PER_PE);
-    assert(index >= 0);
     my_local_bucketed_keys[index] = key;
   }
 
@@ -491,7 +498,7 @@ static inline int * count_local_keys(KEY_TYPE const * restrict const my_bucket_k
   for(long long int i = 0; i < my_bucket_size; ++i){
     const unsigned int key_index = my_bucket_keys[i] - my_min_key;
 
-    assert(key_index >= 0);
+    assert(my_bucket_keys[i] >= my_min_key);
     assert(key_index < BUCKET_WIDTH);
 
     my_local_key_counts[key_index]++;
@@ -520,13 +527,13 @@ static inline int * count_local_keys(KEY_TYPE const * restrict const my_bucket_k
  * Ensures all keys are within a PE's bucket boundaries.
  * Ensures the final number of keys is equal to the initial.
  */
-static void verify_results(int const * restrict const my_local_key_counts, 
+static int verify_results(int const * restrict const my_local_key_counts,
                            KEY_TYPE const * restrict const my_local_keys)
 {
 
   shmem_barrier_all();
 
-  int passed = 1;
+  int error = 0;
 
   const int my_rank = shmem_my_pe();
 
@@ -539,7 +546,7 @@ static void verify_results(int const * restrict const my_local_key_counts,
     if((key < my_min_key) || (key > my_max_key)){
       printf("Rank %d Failed Verification!\n",my_rank);
       printf("Key: %d is outside of bounds [%d, %d]\n", key, my_min_key, my_max_key);
-      passed = 0;
+      error = 1;
     }
   }
 
@@ -551,7 +558,7 @@ static void verify_results(int const * restrict const my_local_key_counts,
   if(bucket_size_test != my_bucket_size){
       printf("Rank %d Failed Verification!\n",my_rank);
       printf("Actual Bucket Size: %lld Should be %lld\n", bucket_size_test, my_bucket_size);
-      passed = 0;
+      error = 1;
   }
 
   // Verify the final number of keys equals the initial number of keys
@@ -563,9 +570,11 @@ static void verify_results(int const * restrict const my_local_key_counts,
     if(my_rank == ROOT_PE){
       printf("Verification Failed!\n");
       printf("Actual total number of keys: %lld Expected %llu\n", total_num_keys, NUM_KEYS_PER_PE * NUM_PES );
-      passed = 0;
+      error = 1;
     }
   }
+
+  return error;
 }
 
 /*
