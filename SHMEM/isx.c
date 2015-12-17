@@ -159,7 +159,7 @@ static char * parse_params(const int argc, char ** argv)
   assert((uint64_t) shmem_n_pes() == NUM_PES);
 
   if(shmem_my_pe() == 0){
-    printf("ISx v1.0 \n");
+    printf("ISx v%1d.%1d\n",MAJOR_VERSION_NUMBER,MINOR_VERSION_NUMBER);
 #ifdef PERMUTE
     printf("Random Permute Used in ATA.\n");
 #endif

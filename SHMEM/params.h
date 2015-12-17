@@ -32,8 +32,13 @@ POSSIBILITY OF SUCH DAMAGE.
 #ifndef _PARAMS_H
 #define _PARAMS_H
 
+//defining mayor and minor version number of ISx code
+#define MAJOR_VERSION_NUMBER 1
+#define MINOR_VERSION_NUMBER 0
+
 //OpenSHMEM compliance: shmalloc and shfree are deprecated
 //to use shmem_malloc and shmem_free define OPENSHMEM_COMPLIANT
+//undef for Cray, since Cray SHMEM is currently not OpenSHMEM complient
 #define OPENSHMEM_COMPLIANT
 
 // The data type used for the keys

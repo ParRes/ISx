@@ -144,7 +144,7 @@ static char * parse_params(const int argc, char ** argv)
   assert((uint64_t) comm_size == NUM_PES);
 
   if(my_rank == 0){
-    printf("ISx MPI v1.0 \n");
+    printf("ISx MPI 2 sided v%1d.%1d\n",MAJOR_VERSION_NUMBER,MINOR_VERSION_NUMBER)
 #ifdef PERMUTE
     printf("Random Permute Used in ATA.\n");
 #endif

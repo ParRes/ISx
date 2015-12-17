@@ -32,6 +32,10 @@ POSSIBILITY OF SUCH DAMAGE.
 #ifndef _PARAMS_H
 #define _PARAMS_H
 
+//defining mayor and minor version number of ISx code
+#define MAJOR_VERSION_NUMBER 1
+#define MINOR_VERSION_NUMBER 0
+
 // The data type used for the keys
 // If you change this, you will have to change the SHMEM API calls used
 typedef int KEY_TYPE;
