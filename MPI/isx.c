@@ -398,7 +398,7 @@ static int * exchange_receive_counts(int const * restrict const local_bucket_siz
 
   timer_start(&timers[TIMER_ATA_COUNTS]);
 
-  MPI_Alltoall(local_bucket_sizes,
+  MPI_Alltoall((void) local_bucket_sizes,
                 1, MPI_INT,
                 my_global_recv_counts,
                 1, MPI_INT,
@@ -593,6 +593,7 @@ static int verify_results(int const * restrict const my_local_key_counts,
       error = 1;
     }
   }
+  return error;
 }
 
 /*
