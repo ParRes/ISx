@@ -90,7 +90,7 @@ static char * parse_params(const int argc, char ** argv)
       printf("Usage:  \n");
       printf("  ./%s <num_pes> <total num keys(strong) | keys per pe(weak)> <log_file>\n",argv[0]);
     }
-    exit(0);
+    exit(1);
   }
 
   NUM_PES = (uint64_t) atoi(argv[1]);
@@ -130,7 +130,7 @@ static char * parse_params(const int argc, char ** argv)
         if(my_rank == 0){
           printf("Invalid scaling option! See params.h to define the scaling option.\n");
         }
-        exit(0);
+        exit(1);
         break;
       }
   }
@@ -618,7 +618,7 @@ static void log_times(char * log_file)
 
     if((fp = fopen(log_file, "a+b"))==NULL){
       perror("Error opening log file:");
-      exit(0);
+      exit(1);
     }
 
     if(print_names == 1){

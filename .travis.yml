@@ -58,7 +58,7 @@ script:
     - make debug CC=oshcc
     - mpiexec.hydra -np 4 ./bin/isx.strong 4 16 output_strong
     - mpiexec.hydra -np 4 ./bin/isx.weak 4 16 output_weak
-    - mpiexec.hydra -np 4 ./bin/isx.weak_iso 16 output_weak_iso
+    - mpiexec.hydra -np 4 ./bin/isx.weak_iso 4 16 output_weak_iso
     - make clean
     - make optimized CC=oshcc
     - mpiexec.hydra -np 4 ./bin/isx.strong 4 134217728 output_strong

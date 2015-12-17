@@ -103,7 +103,7 @@ static char * parse_params(const int argc, char ** argv)
     }
 
     shmem_finalize();
-    exit(0);
+    exit(1);
   }
 
   NUM_PES = (uint64_t) atoi(argv[1]);
@@ -145,7 +145,7 @@ static char * parse_params(const int argc, char ** argv)
         }
 
         shmem_finalize();
-        exit(0);
+        exit(1);
         break;
       }
   }
@@ -599,7 +599,7 @@ static void log_times(char * log_file)
 
     if((fp = fopen(log_file, "a+b"))==NULL){
       perror("Error opening log file:");
-      exit(0);
+      exit(1);
     }
 
     if(print_names == 1){
