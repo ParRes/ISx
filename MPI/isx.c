@@ -587,7 +587,7 @@ static void verify_results(int const * restrict const my_local_key_counts,
   if(total_num_keys != (long long int)(NUM_KEYS_PER_PE * NUM_PES)){
     if(my_rank == ROOT_PE){
       printf("Verification Failed!\n");
-      printf("Actual total number of keys: %" PRIu64 " Expected %" PRIu64 "\n", 
+      printf("Actual total number of keys: %" PRI64 " Expected %" PRI64 "\n", 
                         total_num_keys,   NUM_KEYS_PER_PE * NUM_PES );
       passed = 0;
     }
@@ -724,7 +724,7 @@ static void print_timer_values(FILE * fp)
 {
   unsigned int num_records = NUM_PES * NUM_ITERATIONS; 
 
-  for(int i = 0; i < num_records; ++i) {
+  for(unsigned int i = 0; i < num_records; ++i) {
     for(int t = 0; t < TIMER_NTIMERS; ++t){
       if(timers[t].all_times != NULL){
         fprintf(fp,"%f\t", timers[t].all_times[i]);
