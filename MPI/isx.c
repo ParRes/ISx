@@ -144,7 +144,7 @@ static char * parse_params(const int argc, char ** argv)
   assert((uint64_t) comm_size == NUM_PES);
 
   if(my_rank == 0){
-    printf("ISx MPI 2 sided v%1d.%1d\n",MAJOR_VERSION_NUMBER,MINOR_VERSION_NUMBER)
+    printf("ISx MPI 2 sided v%1d.%1d\n",MAJOR_VERSION_NUMBER,MINOR_VERSION_NUMBER);
 #ifdef PERMUTE
     printf("Random Permute Used in ATA.\n");
 #endif
@@ -588,7 +588,7 @@ static int verify_results(int const * restrict const my_local_key_counts,
   if(total_num_keys != (long long int)(NUM_KEYS_PER_PE * NUM_PES)){
     if(my_rank == ROOT_PE){
       printf("Verification Failed!\n");
-      printf("Actual total number of keys: %" PRId64 , total_num_keys );
+      printf("Actual total number of keys: %lld", total_num_keys );
       printf(" Expected %" PRId64 "\n", NUM_KEYS_PER_PE * NUM_PES );
       error = 1;
     }
