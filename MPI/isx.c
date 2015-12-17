@@ -71,12 +71,12 @@ int main(int argc,  char ** argv)
 
   char * log_file = parse_params(argc, argv);
 
-  bucket_sort();
-
+  int err =  bucket_sort();
 
   log_times(log_file);
 
   MPI_Finalize();
+  return err;
 }
 
 
@@ -166,8 +166,9 @@ static char * parse_params(const int argc, char ** argv)
  * Only iterations after the BURN_IN iterations are timed
  * Only the final iteration calls the verification function
  */
-static void bucket_sort(void)
+static int bucket_sort(void)
 {
+  int err = 0; 
 
   init_timers(NUM_ITERATIONS);
 
@@ -175,7 +176,7 @@ static void bucket_sort(void)
   create_permutation_array();
 #endif
 
-  for(int i = 0; i < (NUM_ITERATIONS + BURN_IN); ++i)
+  for(unsigned int i = 0; i < (NUM_ITERATIONS + BURN_IN); ++i)
   {
 
     // Reset timers after burn in 
@@ -216,7 +217,7 @@ static void bucket_sort(void)
 
     // Only the last iteration is verified
     if(i == NUM_ITERATIONS) { 
-      verify_results(my_local_key_counts, my_bucket_keys, my_bucket_size);
+      err = verify_results(my_local_key_counts, my_bucket_keys, my_bucket_size);
     }
 
 
@@ -230,6 +231,7 @@ static void bucket_sort(void)
 
     MPI_Barrier(MPI_COMM_WORLD);
   }
+  return err;
 }
 
 
@@ -245,7 +247,7 @@ static KEY_TYPE * make_input(void)
 
   pcg32_random_t rng = seed_my_rank();
 
-  for(int i = 0; i < NUM_KEYS_PER_PE; ++i) {
+  for(unsigned int i = 0; i < NUM_KEYS_PER_PE; ++i) {
     my_keys[i] = pcg32_boundedrand_r(&rng, MAX_KEY_VAL);
   }
 
@@ -280,7 +282,7 @@ static inline int * count_local_bucket_sizes(KEY_TYPE const * restrict const my_
 
   init_array(local_bucket_sizes, NUM_BUCKETS);
 
-  for(int i = 0; i < NUM_KEYS_PER_PE; ++i){
+  for(unsigned int i = 0; i < NUM_KEYS_PER_PE; ++i){
     const uint32_t bucket_index = my_keys[i]/BUCKET_WIDTH;
     local_bucket_sizes[bucket_index]++;
   }
@@ -323,7 +325,7 @@ static inline int * compute_local_bucket_offsets(int const * restrict const loca
   local_bucket_offsets[0] = 0;
   (*send_offsets)[0] = 0;
   int temp = 0;
-  for(int i = 1; i < NUM_BUCKETS; i++){
+  for(unsigned int i = 1; i < NUM_BUCKETS; i++){
     temp = local_bucket_offsets[i-1] + local_bucket_sizes[i-1];
     local_bucket_offsets[i] = temp; 
     (*send_offsets)[i] = temp;
@@ -357,7 +359,7 @@ static inline KEY_TYPE * bucketize_local_keys(KEY_TYPE const * restrict const my
 
   timer_start(&timers[TIMER_BUCKETIZE]);
 
-  for(int i = 0; i < NUM_KEYS_PER_PE; ++i){
+  for(unsigned int i = 0; i < NUM_KEYS_PER_PE; ++i){
     const KEY_TYPE key = my_keys[i];
     const uint32_t bucket_index = key / BUCKET_WIDTH;
     uint32_t index;
@@ -546,15 +548,14 @@ static inline int * count_local_keys(KEY_TYPE const * restrict const my_bucket_k
  * Ensures all keys are within a PE's bucket boundaries.
  * Ensures the final number of keys is equal to the initial.
  */
-static void verify_results(int const * restrict const my_local_key_counts, 
+static int verify_results(int const * restrict const my_local_key_counts, 
                            KEY_TYPE const * restrict const my_local_keys,
                            const long long int my_bucket_size)
 {
 
   MPI_Barrier(MPI_COMM_WORLD);
 
-  int passed = 1;
-
+  int error = 0;
 
   const int my_min_key = my_rank * BUCKET_WIDTH;
   const int my_max_key = (my_rank+1) * BUCKET_WIDTH - 1;
@@ -565,19 +566,19 @@ static void verify_results(int const * restrict const my_local_key_counts,
     if((key < my_min_key) || (key > my_max_key)){
       printf("Rank %d Failed Verification!\n",my_rank);
       printf("Key: %d is outside of bounds [%d, %d]\n", key, my_min_key, my_max_key);
-      passed = 0;
+      error = 1;
     }
   }
 
   // Verify the sum of the key population equals the expected bucket size
   int bucket_size_test = 0;
-  for(int i = 0; i < BUCKET_WIDTH; ++i){
+  for(unsigned int i = 0; i < BUCKET_WIDTH; ++i){
     bucket_size_test += my_local_key_counts[i];
   }
   if(bucket_size_test != my_bucket_size){
       printf("Rank %d Failed Verification!\n",my_rank);
       printf("Actual Bucket Size: %d Should be %lld\n", bucket_size_test, my_bucket_size);
-      passed = 0;
+      error = 1;
   }
 
   // Verify the final number of keys equals the initial number of keys
@@ -589,7 +590,7 @@ static void verify_results(int const * restrict const my_local_key_counts,
       printf("Verification Failed!\n");
       printf("Actual total number of keys: %" PRId64 , total_num_keys );
       printf(" Expected %" PRId64 "\n", NUM_KEYS_PER_PE * NUM_PES );
-      passed = 0;
+      error = 1;
     }
   }
 }
@@ -641,7 +642,7 @@ static void report_summary_stats(void)
   if(timers[TIMER_TOTAL].seconds_iter > 0) {
     const uint32_t num_records = NUM_PES * timers[TIMER_TOTAL].seconds_iter;
     double temp = 0.0;
-    for(int i = 0; i < num_records; ++i){
+    for(unsigned int i = 0; i < num_records; ++i){
       temp += timers[TIMER_TOTAL].all_times[i];
     }
       printf("Average total time (per PE): %f seconds\n", temp/num_records);
@@ -650,7 +651,7 @@ static void report_summary_stats(void)
   if(timers[TIMER_ATA_KEYS].seconds_iter >0) {
     const uint32_t num_records = NUM_PES * timers[TIMER_ATA_KEYS].seconds_iter;
     double temp = 0.0;
-    for(int i = 0; i < num_records; ++i){
+    for(unsigned int i = 0; i < num_records; ++i){
       temp += timers[TIMER_ATA_KEYS].all_times[i];
     }
     printf("Average all2all time (per PE): %f seconds\n", temp/num_records);
