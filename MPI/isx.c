@@ -587,8 +587,8 @@ static void verify_results(int const * restrict const my_local_key_counts,
   if(total_num_keys != (long long int)(NUM_KEYS_PER_PE * NUM_PES)){
     if(my_rank == ROOT_PE){
       printf("Verification Failed!\n");
-      printf("Actual total number of keys: %" PRI64 " Expected %" PRI64 "\n", 
-                        total_num_keys,   NUM_KEYS_PER_PE * NUM_PES );
+      printf("Actual total number of keys: %" PRI64 " Expected %" PRI64 "\n",
+                                   total_num_keys,   NUM_KEYS_PER_PE * NUM_PES );
       passed = 0;
     }
   }
