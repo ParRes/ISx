@@ -32,6 +32,8 @@ POSSIBILITY OF SUCH DAMAGE.
 #ifndef _ISX_H
 #define _ISX_H
 
+#define __STDC_FORMAT_MACROS
+#include <inttypes.h>
 #include "timer.h"
 #include "pcg_basic.h"
 /*

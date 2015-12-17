@@ -30,7 +30,8 @@ ISx is Scalable Integer Sort Application
 References:
 ISx, a Scalable Integer Sort for Co-design in the Exascale Era. 
 Ulf Hanebutte and Jacob Hemstad. Proc. Ninth Conf. on Partitioned Global Address Space 
-Programming Models (PGAS). Washington, DC. Oct 2015. http://hpcl.seas.gwu.edu/pgas15/
+Programming Models (PGAS). Washington, DC. Sep 2015. http://hpcl.seas.gwu.edu/pgas15/
+http://ieeexplore.ieee.org/xpl/mostRecentIssue.jsp?punumber=7306013
 
 Information about the NAS Parallel Benchmarks may be found here:
 https://www.nas.nasa.gov/publications/npb.html
@@ -73,7 +74,6 @@ make debug
 make optimized
 - Compiles with optimization flags, including -DNDEBUG, which disables assert statements.
 
-Usage: ./isx <num_pes> <total_num_keys (strong) | keys_per_pe (weak)> <log_file>
 
 The params.h file has various definitions that may be modified to change application options.
 
@@ -98,5 +98,5 @@ Weak_iso:
  aprun -n 24 -N 4 ./bin/isx.weak_iso 24 134217728 output_weak_iso
 
 Note: timing measurements (see timer.c) are obtained by calls to clock_gettime
-with the clk_id argument set to CLOCK_MONOTONIC, however not all systems support this clk_id.
+with the clk_id argument set to CLOCK_MONOTONIC. However, not all systems support this clk_id.
 For such situations, clk_id should be changed to CLOCK_REALTIME, which is supported by all systems.

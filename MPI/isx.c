@@ -141,18 +141,18 @@ static char * parse_params(const int argc, char ** argv)
   assert(MAX_KEY_VAL > NUM_PES);
   assert(NUM_BUCKETS > 0);
   assert(BUCKET_WIDTH > 0);
-  assert(comm_size == NUM_PES);
+  assert((uint64_t) comm_size == NUM_PES);
 
   if(my_rank == 0){
     printf("ISx MPI v1.0 \n");
 #ifdef PERMUTE
     printf("Random Permute Used in ATA.\n");
 #endif
-    printf("  Number of Keys per PE: %llu\n", NUM_KEYS_PER_PE);
-    printf("  Max Key Value: %llu\n", MAX_KEY_VAL);
-    printf("  Bucket Width: %llu\n", BUCKET_WIDTH);
+    printf("  Number of Keys per PE: %" PRIu64 "\n", NUM_KEYS_PER_PE);
+    printf("  Max Key Value: %" PRIu64 "\n", MAX_KEY_VAL);
+    printf("  Bucket Width: %" PRIu64 "\n", BUCKET_WIDTH);
     printf("  Number of Iterations: %u\n", NUM_ITERATIONS);
-    printf("  Number of PEs: %llu\n", NUM_PES);
+    printf("  Number of PEs: %" PRIu64 "\n", NUM_PES);
     printf("  %s Scaling!\n",scaling_msg);
     }
 
@@ -360,9 +360,10 @@ static inline KEY_TYPE * bucketize_local_keys(KEY_TYPE const * restrict const my
   for(int i = 0; i < NUM_KEYS_PER_PE; ++i){
     const KEY_TYPE key = my_keys[i];
     const uint32_t bucket_index = key / BUCKET_WIDTH;
-    const uint32_t index = local_bucket_offsets[bucket_index]++;
-    assert(index < NUM_KEYS_PER_PE);
-    assert(index >= 0);
+    uint32_t index;
+    assert(local_bucket_offsets[bucket_index] >= 0);
+    index = local_bucket_offsets[bucket_index]++;
+    assert(index < NUM_KEYS_PER_PE)
     my_local_bucketed_keys[index] = key;
   }
 
@@ -516,7 +517,7 @@ static inline int * count_local_keys(KEY_TYPE const * restrict const my_bucket_k
   for(int i = 0; i < my_bucket_size; ++i){
     const unsigned int key_index = my_bucket_keys[i] - my_min_key;
 
-    assert(key_index >= 0);
+    assert(my_bucket_keys[i] >= my_min_key);
     assert(key_index < BUCKET_WIDTH);
 
     my_local_key_counts[key_index]++;
@@ -586,7 +587,7 @@ static void verify_results(int const * restrict const my_local_key_counts,
   if(total_num_keys != (long long int)(NUM_KEYS_PER_PE * NUM_PES)){
     if(my_rank == ROOT_PE){
       printf("Verification Failed!\n");
-      printf("Actual total number of keys: %llu Expected %llu\n", 
+      printf("Actual total number of keys: %" PRIu64 " Expected %" PRIu64 "\n", 
                         total_num_keys,   NUM_KEYS_PER_PE * NUM_PES );
       passed = 0;
     }
@@ -678,22 +679,22 @@ static void print_timer_names(FILE * fp)
 static void print_run_info(FILE * fp)
 {
   fprintf(fp,"MPI\t");
-  fprintf(fp,"NUM_PES %llu\t", NUM_PES);
-  fprintf(fp,"Max_Key %llu\t", MAX_KEY_VAL); 
+  fprintf(fp,"NUM_PES %" PRIu64 "\t", NUM_PES);
+  fprintf(fp,"Max_Key %" PRIu64 "\t", MAX_KEY_VAL); 
   fprintf(fp,"Num_Iters %u\t", NUM_ITERATIONS);
 
   switch(SCALING_OPTION){
     case STRONG: {
-        fprintf(fp,"Strong Scaling: %llu total keys\t", NUM_KEYS_PER_PE * NUM_PES);
+        fprintf(fp,"Strong Scaling: %" PRIu64 " total keys\t", NUM_KEYS_PER_PE * NUM_PES);
         break;
       }
     case WEAK: {
-        fprintf(fp,"Weak Scaling: %llu keys per PE\t", NUM_KEYS_PER_PE);
+        fprintf(fp,"Weak Scaling: %" PRIu64 " keys per PE\t", NUM_KEYS_PER_PE);
         break;
       }
     case WEAK_ISOBUCKET: {
-        fprintf(fp,"Weak Scaling Constant Bucket Width: %llu keys per PE \t", NUM_KEYS_PER_PE);
-        fprintf(fp,"Constant Bucket Width: %llu\t", BUCKET_WIDTH);
+        fprintf(fp,"Weak Scaling Constant Bucket Width: %" PRIu64 " keys per PE \t", NUM_KEYS_PER_PE);
+        fprintf(fp,"Constant Bucket Width: %" PRIu64 "\t", BUCKET_WIDTH);
         break;
       }
     default:
