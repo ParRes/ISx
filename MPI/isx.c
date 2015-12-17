@@ -363,7 +363,7 @@ static inline KEY_TYPE * bucketize_local_keys(KEY_TYPE const * restrict const my
     uint32_t index;
     assert(local_bucket_offsets[bucket_index] >= 0);
     index = local_bucket_offsets[bucket_index]++;
-    assert(index < NUM_KEYS_PER_PE)
+    assert(index < NUM_KEYS_PER_PE);
     my_local_bucketed_keys[index] = key;
   }
 
