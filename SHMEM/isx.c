@@ -95,28 +95,28 @@ int main(const int argc,  char ** argv)
 // to set all necessary runtime values and options
 static char * parse_params(const int argc, char ** argv)
 {
-  if(argc != 4)
+  if(argc != 3)
   {
     if( shmem_my_pe() == 0){
       printf("Usage:  \n");
-      printf("  ./%s <num_pes> <total num keys(strong) | keys per pe(weak)> <log_file>\n",argv[0]);
+      printf("  ./%s <total num keys(strong) | keys per pe(weak)> <log_file>\n",argv[0]);
     }
 
     shmem_finalize();
     exit(1);
   }
 
-  NUM_PES = (uint64_t) atoi(argv[1]);
+  NUM_PES = (uint64_t) shmem_num_pe();
   MAX_KEY_VAL = DEFAULT_MAX_KEY;
   NUM_BUCKETS = NUM_PES;
   BUCKET_WIDTH = (uint64_t) ceil((double)MAX_KEY_VAL/NUM_BUCKETS);
-  char * log_file = argv[3];
+  char * log_file = argv[2];
   char scaling_msg[64];
 
   switch(SCALING_OPTION){
     case STRONG:
       {
-        TOTAL_KEYS = (uint64_t) atoi(argv[2]);
+        TOTAL_KEYS = (uint64_t) atoi(argv[1]);
         NUM_KEYS_PER_PE = (uint64_t) ceil((double)TOTAL_KEYS/NUM_PES);
         sprintf(scaling_msg,"STRONG");
         break;
@@ -124,14 +124,14 @@ static char * parse_params(const int argc, char ** argv)
 
     case WEAK:
       {
-        NUM_KEYS_PER_PE = (uint64_t) (atoi(argv[2]));
+        NUM_KEYS_PER_PE = (uint64_t) (atoi(argv[1]));
         sprintf(scaling_msg,"WEAK");
         break;
       }
 
     case WEAK_ISOBUCKET:
       {
-        NUM_KEYS_PER_PE = (uint64_t) (atoi(argv[2]));
+        NUM_KEYS_PER_PE = (uint64_t) (atoi(argv[1]));
         BUCKET_WIDTH = ISO_BUCKET_WIDTH; 
         MAX_KEY_VAL = (uint64_t) (NUM_PES * BUCKET_WIDTH);
         sprintf(scaling_msg,"WEAK_ISOBUCKET");
