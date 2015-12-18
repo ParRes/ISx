@@ -87,7 +87,7 @@ script:
 notifications:
   email:
     recipients:
-      - james.dinan@intel.com
+      ### - james.dinan@intel.com
       - ulf.r.hanebutte@intel.com
     on_success: [change]
     on_failure: [always] 
