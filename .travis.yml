@@ -38,8 +38,8 @@ before_install:
 
 install:
     ## Fetch ISx
-    ### - git clone https://github.com/ParRes/ISx.git ISx
-    - git clone https://github.com/ulfhanebutte/ISx.git ISx
+    - git clone https://github.com/ParRes/ISx.git ISx
+    ###- git clone https://github.com/ulfhanebutte/ISx.git ISx
 script:
     - export BASE_PATH=$PATH
     - export BASE_LD_LIBRARY_PATH=$LD_LIBRARY_PATH
@@ -87,7 +87,7 @@ script:
 notifications:
   email:
     recipients:
-      ### - james.dinan@intel.com
+      - james.dinan@intel.com
       - ulf.r.hanebutte@intel.com
     on_success: [change]
     on_failure: [always] 
