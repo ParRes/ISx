@@ -77,9 +77,9 @@ make optimized
 
 The params.h file has various definitions that may be modified to change application options.
 
-Usage: ./bin/isx.strong <num_pes> <total_num_keys>  <log_file>
-       ./bin/isx.weak  <num_pes> <keys_per_pe> <log_file>
-       ./bin/isx.weak_iso <num_pes> <keys_per_pe> <log_file>
+Usage: ./bin/isx.strong   <total_num_keys>  <log_file>
+       ./bin/isx.weak     <keys_per_pe> <log_file>
+       ./bin/isx.weak_iso <keys_per_pe> <log_file>
 
 The log file stores the verbose timing information for the run. Each row of the file corresponds 
 to a single PE's timing results for each component of the application, for every iteration of computation. 
@@ -88,15 +88,17 @@ Reuse of the same output file will concatenate results.
 example command lines (assuming aprun) for 2^27 keys (=134217728)
 
 Strong:
- aprun -n 24 -N 4 ./bin/isx.strong 24 134217728 output_strong
+ aprun -n 24 -N 4 ./bin/isx.strong 134217728 output_strong
  
 Weak:
- aprun -n 24 -N 4 ./bin/isx.weak 24 134217728 output_weak
+ aprun -n 24 -N 4 ./bin/isx.weak 134217728 output_weak
  
 Weak_iso:
  Note that the iso-bucket width is specified in params.h
- aprun -n 24 -N 4 ./bin/isx.weak_iso 24 134217728 output_weak_iso
+ aprun -n 24 -N 4 ./bin/isx.weak_iso 134217728 output_weak_iso
 
 Note: timing measurements (see timer.c) are obtained by calls to clock_gettime
 with the clk_id argument set to CLOCK_MONOTONIC. However, not all systems support this clk_id.
 For such situations, clk_id should be changed to CLOCK_REALTIME, which is supported by all systems.
+
+For backwards compatibility the params.h contains #define OPENSHMEM_COMPLIANT which can be undefined to fall back to earlier APIs
