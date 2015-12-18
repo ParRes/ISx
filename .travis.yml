@@ -38,8 +38,8 @@ before_install:
 
 install:
     ## Fetch ISx
-    - git clone https://github.com/ParRes/ISx.git ISx
-
+    ### - git clone https://github.com/ParRes/ISx.git ISx
+    - git clone https://github.com/ulfhanebutte/ISx.git ISx
 script:
     - export BASE_PATH=$PATH
     - export BASE_LD_LIBRARY_PATH=$LD_LIBRARY_PATH
