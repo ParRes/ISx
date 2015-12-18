@@ -7,6 +7,7 @@ os:
     - linux
 
 before_install:
+    - export ISX_SRC=$PWD
     - sudo apt-get update -qq
     - sudo apt-get install -y dc openmpi-bin libopenmpi-dev
     ## Build libfabric
@@ -31,15 +32,13 @@ before_install:
     - git clone https://github.com/regrant/sandia-shmem.git src/sandia-shmem
     - cd src/sandia-shmem
     - ./autogen.sh
-    - ./configure --with-ofi=$HOME/opt/libfabric/ --disable-fortran --prefix=$HOME/opt/sandia-shmem-ofi --enable-error-checking --enable-remote-virtual-addressing --enable-picky --enable-pmi-simple FCFLAGS="-fcray-pointer"
+    - ./configure --with-ofi=$HOME/opt/libfabric/ --disable-fortran --prefix=$HOME/opt/sandia-shmem-ofi --enable-error-checking --enable-remote-virtual-addressing --enable-picky --enable-pmi-simple
     - make -j 4
     - make install
     - cd ../..
 
 install:
-    ## Fetch ISx
-    - git clone https://github.com/ParRes/ISx.git ISx
-    ###- git clone https://github.com/ulfhanebutte/ISx.git ISx
+
 script:
     - export BASE_PATH=$PATH
     - export BASE_LD_LIBRARY_PATH=$LD_LIBRARY_PATH
@@ -49,7 +48,7 @@ script:
     - export PATH=$HOME/opt/sandia-shmem-ofi/bin:$HOME/opt/hydra/bin:$BASE_PATH
     - export LD_LIBRARY_PATH=$HOME/opt/sandia-shmem-ofi/lib:$BASE_LD_LIBRARY_PATH
     - export OSHRUN_LAUNCHER="mpiexec.hydra"
-    - cd ISx/SHMEM
+    - cd $ISX_SRC/SHMEM
     - make CC=oshcc
     - mpiexec.hydra -np 4 ./bin/isx.strong 134217728 output_strong
     - mpiexec.hydra -np 4 ./bin/isx.weak 33554432 output_weak
@@ -71,7 +70,7 @@ script:
     ###
     - export PATH=$BASE_PATH
     - export LD_LIBRARY_PATH=$BASE_LD_LIBRARY_PATH
-    - cd ISx/MPI
+    - cd $ISX_SRC/MPI
     - make CC=mpicc.openmpi
     - mpirun.openmpi -np 4 ./bin/isx.strong 134217728 output_strong
     - mpirun.openmpi -np 4 ./bin/isx.weak 33554432 output_weak
