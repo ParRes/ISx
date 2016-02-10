@@ -29,7 +29,8 @@ before_install:
     - make install
     - cd ../..
     ## Build Sandia OpenSHMEM
-    - git clone https://github.com/regrant/sandia-shmem.git src/sandia-shmem
+    ## - git clone https://github.com/regrant/sandia-shmem.git src/sandia-shmem
+    - git clone https://github.com/Sandia-OpenSHMEM/SOS.git src/sandia-shmem
     - cd src/sandia-shmem
     - ./autogen.sh
     - ./configure --with-ofi=$HOME/opt/libfabric/ --disable-fortran --prefix=$HOME/opt/sandia-shmem-ofi --enable-error-checking --enable-remote-virtual-addressing --enable-picky --enable-pmi-simple
