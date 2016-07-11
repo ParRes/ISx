@@ -2,7 +2,7 @@ CC = cc
 LD = $(CC)
 DEBUGFLAGS = -g -p -O0 -DDEBUG
 OPTFLAGS = -O3 -DNDEBUG -mavx
-CFLAGS += -Wall -Wextra -std=c99 #$(OPTFLAGS)
+CFLAGS += -Wall -Wextra -std=c99 -DUSE_BITWISE_SHIFT_WHEN_POSSIBLE #$(OPTFLAGS)
 LDLIBS += -lrt -lm
 LDFLAGS += 
 ### 

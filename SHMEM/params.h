@@ -34,7 +34,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 //defining mayor and minor version number of ISx code
 #define MAJOR_VERSION_NUMBER 1
-#define MINOR_VERSION_NUMBER 1
+#define MINOR_VERSION_NUMBER 3
 
 //OpenSHMEM compliance: shmalloc and shfree are deprecated
 //to use shmem_malloc and shmem_free define OPENSHMEM_COMPLIANT

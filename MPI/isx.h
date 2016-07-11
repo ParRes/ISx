@@ -146,5 +146,6 @@ static void print_run_info(FILE * fp);
 static void print_timer_values(FILE * fp);
 static double * gather_rank_times(_timer_t * const timer);
 static unsigned int * gather_rank_counts(_timer_t * const timer);
-
+static int isPowerOfTwo (uint64_t x);
+static int getExponentOfPowerOfTwo (uint64_t x);
 #endif

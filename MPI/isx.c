@@ -54,6 +54,8 @@ uint64_t NUM_BUCKETS; // The number of buckets in the bucket sort
 uint64_t BUCKET_WIDTH; // The size of each bucket
 uint64_t MAX_KEY_VAL; // The maximum possible generated key value
 
+int BUCKET_WIDTH_SHIFT = 0;
+
 int my_rank;
 int comm_size;
 
@@ -103,7 +105,7 @@ static char * parse_params(const int argc, char ** argv)
   switch(SCALING_OPTION){
     case STRONG:
       {
-        TOTAL_KEYS = (uint64_t) atoi(argv[1]);
+        TOTAL_KEYS = (uint64_t) atoll(argv[1]);
         NUM_KEYS_PER_PE = (uint64_t) ceil((double)TOTAL_KEYS/NUM_PES);
         sprintf(scaling_msg,"STRONG");
         break;
@@ -111,14 +113,14 @@ static char * parse_params(const int argc, char ** argv)
 
     case WEAK:
       {
-        NUM_KEYS_PER_PE = (uint64_t) (atoi(argv[1]));
+        NUM_KEYS_PER_PE = (uint64_t) (atoll(argv[1]));
         sprintf(scaling_msg,"WEAK");
         break;
       }
 
     case WEAK_ISOBUCKET:
       {
-        NUM_KEYS_PER_PE = (uint64_t) (atoi(argv[1]));
+        NUM_KEYS_PER_PE = (uint64_t) (atoll(argv[1]));
         BUCKET_WIDTH = ISO_BUCKET_WIDTH; 
         MAX_KEY_VAL = (uint64_t) (NUM_PES * BUCKET_WIDTH);
         sprintf(scaling_msg,"WEAK_ISOBUCKET");
@@ -135,6 +137,10 @@ static char * parse_params(const int argc, char ** argv)
       }
   }
 
+#ifdef USE_BITWISE_SHIFT_WHEN_POSSIBLE
+  if(isPowerOfTwo(BUCKET_WIDTH) == 1)  BUCKET_WIDTH_SHIFT = getExponentOfPowerOfTwo(BUCKET_WIDTH);    
+#endif
+
   assert(MAX_KEY_VAL > 0);
   assert(NUM_KEYS_PER_PE > 0);
   assert(NUM_PES > 0);
@@ -150,6 +156,12 @@ static char * parse_params(const int argc, char ** argv)
     printf("  Number of Keys per PE: %" PRIu64 "\n", NUM_KEYS_PER_PE);
     printf("  Max Key Value: %" PRIu64 "\n", MAX_KEY_VAL);
     printf("  Bucket Width: %" PRIu64 "\n", BUCKET_WIDTH);
+#ifdef USE_BITWISE_SHIFT_WHEN_POSSIBLE
+    if(isPowerOfTwo(BUCKET_WIDTH) == 1) {
+        printf("  Bucket Width is a power of 2 with exponent: %u, using bit shift\n", 
+               BUCKET_WIDTH_SHIFT);    
+    }
+#endif
     printf("  Number of Iterations: %u\n", NUM_ITERATIONS);
     printf("  Number of PEs: %" PRIu64 "\n", NUM_PES);
     printf("  %s Scaling!\n",scaling_msg);
@@ -281,9 +293,17 @@ static inline int * count_local_bucket_sizes(KEY_TYPE const * restrict const my_
 
   init_array(local_bucket_sizes, NUM_BUCKETS);
 
-  for(unsigned int i = 0; i < NUM_KEYS_PER_PE; ++i){
-    const uint32_t bucket_index = my_keys[i]/BUCKET_WIDTH;
-    local_bucket_sizes[bucket_index]++;
+  if (BUCKET_WIDTH > 1 && BUCKET_WIDTH_SHIFT != 0) {      //we have a bucket width that is power of 2 and use shift
+    for(uint64_t i = 0; i < NUM_KEYS_PER_PE; ++i){
+      const uint32_t bucket_index = my_keys[i] >> BUCKET_WIDTH_SHIFT;
+      local_bucket_sizes[bucket_index]++;
+    }
+  }
+  else {
+    for(uint64_t i = 0; i < NUM_KEYS_PER_PE; ++i){
+      const uint32_t bucket_index = my_keys[i]/BUCKET_WIDTH;
+      local_bucket_sizes[bucket_index]++;
+    }
   }
 
   timer_stop(&timers[TIMER_BCOUNT]);
@@ -356,19 +376,34 @@ static inline KEY_TYPE * bucketize_local_keys(KEY_TYPE const * restrict const my
 {
   KEY_TYPE * restrict const my_local_bucketed_keys = malloc(NUM_KEYS_PER_PE * sizeof(KEY_TYPE));
 
-  timer_start(&timers[TIMER_BUCKETIZE]);
+  if (BUCKET_WIDTH > 1 && BUCKET_WIDTH_SHIFT != 0) {      //we have a bucket width that is power of 2 and use shift
+    timer_start(&timers[TIMER_BUCKETIZE]);
 
-  for(unsigned int i = 0; i < NUM_KEYS_PER_PE; ++i){
-    const KEY_TYPE key = my_keys[i];
-    const uint32_t bucket_index = key / BUCKET_WIDTH;
-    uint32_t index;
-    assert(local_bucket_offsets[bucket_index] >= 0);
-    index = local_bucket_offsets[bucket_index]++;
-    assert(index < NUM_KEYS_PER_PE);
-    my_local_bucketed_keys[index] = key;
+      for(uint64_t i = 0; i < NUM_KEYS_PER_PE; ++i){
+        const KEY_TYPE key = my_keys[i];
+        const uint32_t bucket_index = key >> BUCKET_WIDTH_SHIFT;
+        uint32_t index;
+        assert(local_bucket_offsets[bucket_index] >= 0);
+        index = local_bucket_offsets[bucket_index]++;
+        assert(index < NUM_KEYS_PER_PE);
+        my_local_bucketed_keys[index] = key;
+      }
+    timer_stop(&timers[TIMER_BUCKETIZE]);
   }
+  else {
+    timer_start(&timers[TIMER_BUCKETIZE]);
 
-  timer_stop(&timers[TIMER_BUCKETIZE]);
+      for(uint64_t i = 0; i < NUM_KEYS_PER_PE; ++i){
+        const KEY_TYPE key = my_keys[i];
+        const uint32_t bucket_index = key / BUCKET_WIDTH;
+        uint32_t index;
+        assert(local_bucket_offsets[bucket_index] >= 0);
+        index = local_bucket_offsets[bucket_index]++;
+        assert(index < NUM_KEYS_PER_PE);
+        my_local_bucketed_keys[index] = key;
+      }
+    timer_stop(&timers[TIMER_BUCKETIZE]);
+  }
 
 #ifdef DEBUG
   
@@ -845,3 +880,23 @@ static void shuffle(void * array, size_t n, size_t size)
 }
 #endif
 
+/*
+ *  * Check if a number is a power of 2
+ *   */
+static int isPowerOfTwo (uint64_t x)
+{
+  return ((x != 0) && !(x & (x - 1)));
+}
+
+/*
+ *  * for numbers that are power of two, get the exponent
+ *   */
+static int getExponentOfPowerOfTwo (uint64_t x)
+{
+ int exponent = 0;
+ while (((x % 2) == 0) && x > 1){ /* While x is even and > 1 */
+   x /= 2;
+   exponent ++;
+ }
+ return (exponent);
+}

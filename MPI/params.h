@@ -34,7 +34,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 //defining mayor and minor version number of ISx code
 #define MAJOR_VERSION_NUMBER 1
-#define MINOR_VERSION_NUMBER 1
+#define MINOR_VERSION_NUMBER 3
 
 // The data type used for the keys
 // If you change this, you will have to change the SHMEM API calls used

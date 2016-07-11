@@ -59,6 +59,8 @@ uint64_t NUM_BUCKETS; // The number of buckets in the bucket sort
 uint64_t BUCKET_WIDTH; // The size of each bucket
 uint64_t MAX_KEY_VAL; // The maximum possible generated key value
 
+int BUCKET_WIDTH_SHIFT = 0;
+
 volatile int whose_turn;
 
 long long int receive_offset = 0;
@@ -83,6 +85,8 @@ int main(const int argc,  char ** argv)
   char * log_file = parse_params(argc, argv);
 
   int err = bucket_sort();
+  
+  shmem_barrier_all();
 
   log_times(log_file);
 
@@ -149,6 +153,9 @@ static char * parse_params(const int argc, char ** argv)
         break;
       }
   }
+#ifdef USE_BITWISE_SHIFT_WHEN_POSSIBLE
+  if(isPowerOfTwo(BUCKET_WIDTH) == 1)  BUCKET_WIDTH_SHIFT = getExponentOfPowerOfTwo(BUCKET_WIDTH);    
+#endif
 
   assert(MAX_KEY_VAL > 0);
   assert(NUM_KEYS_PER_PE > 0);
@@ -159,12 +166,21 @@ static char * parse_params(const int argc, char ** argv)
   
   if(shmem_my_pe() == 0){
     printf("ISx v%1d.%1d\n",MAJOR_VERSION_NUMBER,MINOR_VERSION_NUMBER);
+#ifdef NONBLOCKING
+    printf("Using nonblocking puts in all2all exchange\n");
+#endif
 #ifdef PERMUTE
     printf("Random Permute Used in ATA.\n");
 #endif
     printf("  Number of Keys per PE: %" PRIu64 "\n", NUM_KEYS_PER_PE);
     printf("  Max Key Value: %" PRIu64 "\n", MAX_KEY_VAL);
     printf("  Bucket Width: %" PRIu64 "\n", BUCKET_WIDTH);
+#ifdef USE_BITWISE_SHIFT_WHEN_POSSIBLE
+    if(isPowerOfTwo(BUCKET_WIDTH) == 1) {
+        printf("  Bucket Width is a power of 2 with exponent: %u, using bit shift\n", 
+               BUCKET_WIDTH_SHIFT);    
+    }
+#endif
     printf("  Number of Iterations: %u\n", NUM_ITERATIONS);
     printf("  Number of PEs: %" PRIu64 "\n", NUM_PES);
     printf("  %s Scaling!\n",scaling_msg);
@@ -186,13 +202,13 @@ static int bucket_sort(void)
 
   init_timers(NUM_ITERATIONS);
 
-#ifdef PERMUTE
-  create_permutation_array();
-#endif
 
   for(uint64_t i = 0; i < (NUM_ITERATIONS + BURN_IN); ++i)
   {
 
+#ifdef PERMUTE
+  create_permutation_array();
+#endif
     // Reset timers after burn in 
     if(i == BURN_IN){ init_timers(NUM_ITERATIONS); } 
 
@@ -292,9 +308,17 @@ static inline int * count_local_bucket_sizes(KEY_TYPE const * restrict const my_
 
   init_array(local_bucket_sizes, NUM_BUCKETS);
 
-  for(uint64_t i = 0; i < NUM_KEYS_PER_PE; ++i){
-    const uint32_t bucket_index = my_keys[i]/BUCKET_WIDTH;
-    local_bucket_sizes[bucket_index]++;
+  if (BUCKET_WIDTH > 1 && BUCKET_WIDTH_SHIFT != 0) {      //we have a bucket width that is power of 2 and use shift
+    for(uint64_t i = 0; i < NUM_KEYS_PER_PE; ++i){
+      const uint32_t bucket_index = my_keys[i] >> BUCKET_WIDTH_SHIFT;
+      local_bucket_sizes[bucket_index]++;
+    }
+  }
+  else {
+    for(uint64_t i = 0; i < NUM_KEYS_PER_PE; ++i){
+      const uint32_t bucket_index = my_keys[i]/BUCKET_WIDTH;
+      local_bucket_sizes[bucket_index]++;
+    }
   }
 
   timer_stop(&timers[TIMER_BCOUNT]);
@@ -369,19 +393,35 @@ static inline KEY_TYPE * bucketize_local_keys(KEY_TYPE const * restrict const my
 {
   KEY_TYPE * restrict const my_local_bucketed_keys = malloc(NUM_KEYS_PER_PE * sizeof(KEY_TYPE));
 
-  timer_start(&timers[TIMER_BUCKETIZE]);
 
-  for(uint64_t i = 0; i < NUM_KEYS_PER_PE; ++i){
-    const KEY_TYPE key = my_keys[i];
-    const uint32_t bucket_index = key / BUCKET_WIDTH;
-    uint32_t index;
-    assert(local_bucket_offsets[bucket_index] >= 0);
-    index = local_bucket_offsets[bucket_index]++;
-    assert(index < NUM_KEYS_PER_PE);
-    my_local_bucketed_keys[index] = key;
+  if (BUCKET_WIDTH > 1 && BUCKET_WIDTH_SHIFT != 0) {      //we have a bucket width that is power of 2 and use shift
+    timer_start(&timers[TIMER_BUCKETIZE]);
+
+      for(uint64_t i = 0; i < NUM_KEYS_PER_PE; ++i){
+        const KEY_TYPE key = my_keys[i];
+        const uint32_t bucket_index = key >> BUCKET_WIDTH_SHIFT;
+        uint32_t index;
+        assert(local_bucket_offsets[bucket_index] >= 0);
+        index = local_bucket_offsets[bucket_index]++;
+        assert(index < NUM_KEYS_PER_PE);
+        my_local_bucketed_keys[index] = key;
+      }
+    timer_stop(&timers[TIMER_BUCKETIZE]);
   }
+  else {
+    timer_start(&timers[TIMER_BUCKETIZE]);
 
-  timer_stop(&timers[TIMER_BUCKETIZE]);
+      for(uint64_t i = 0; i < NUM_KEYS_PER_PE; ++i){
+        const KEY_TYPE key = my_keys[i];
+        const uint32_t bucket_index = key / BUCKET_WIDTH;
+        uint32_t index;
+        assert(local_bucket_offsets[bucket_index] >= 0);
+        index = local_bucket_offsets[bucket_index]++;
+        assert(index < NUM_KEYS_PER_PE);
+        my_local_bucketed_keys[index] = key;
+      }
+    timer_stop(&timers[TIMER_BUCKETIZE]);
+  }
 
 #ifdef DEBUG
   wait_my_turn();
@@ -443,7 +483,12 @@ static inline KEY_TYPE * exchange_keys(int const * restrict const send_offsets,
         my_rank, target_pe, write_offset_into_target, read_offset_from_self, my_send_size);
 #endif
 
-    shmem_int_put(&(my_bucket_keys[write_offset_into_target]), 
+#ifdef NONBLOCKING
+    shmem_int_put_nbi
+#else
+    shmem_int_put
+#endif
+                (&(my_bucket_keys[write_offset_into_target]), 
                   &(my_local_bucketed_keys[read_offset_from_self]), 
                   my_send_size, 
                   target_pe);
@@ -453,6 +498,8 @@ static inline KEY_TYPE * exchange_keys(int const * restrict const send_offsets,
 
 #ifdef BARRIER_ATA
   shmem_barrier_all();
+#elif defined(NONBLOCKING)
+  #error "Must use either non-blocking put() or a barrier()."
 #endif
 
   timer_stop(&timers[TIMER_ATA_KEYS]);
@@ -622,20 +669,24 @@ static void report_summary_stats(void)
   
   if(timers[TIMER_TOTAL].seconds_iter > 0) {
     const uint32_t num_records = NUM_PES * timers[TIMER_TOTAL].seconds_iter;
-    double temp = 0.0;
+    double temp = 0.0, temp_min = 10000000.0, temp_max = 0.0;
     for(uint64_t i = 0; i < num_records; ++i){
       temp += timers[TIMER_TOTAL].all_times[i];
+      if (timers[TIMER_TOTAL].all_times[i] < temp_min) temp_min = timers[TIMER_TOTAL].all_times[i];
+      if (timers[TIMER_TOTAL].all_times[i] > temp_max) temp_max = timers[TIMER_TOTAL].all_times[i];
     }
-      printf("Average total time (per PE): %f seconds\n", temp/num_records);
+      printf("Average total time (per PE) seconds average: %f, min: %f, max: %f\n", temp/num_records, temp_min, temp_max);
   }
 
   if(timers[TIMER_ATA_KEYS].seconds_iter >0) {
     const uint32_t num_records = NUM_PES * timers[TIMER_ATA_KEYS].seconds_iter;
-    double temp = 0.0;
+    double temp = 0.0, temp_min = 10000000.0, temp_max = 0.0;
     for(uint64_t i = 0; i < num_records; ++i){
       temp += timers[TIMER_ATA_KEYS].all_times[i];
+      if (timers[TIMER_ATA_KEYS].all_times[i] < temp_min) temp_min = timers[TIMER_ATA_KEYS].all_times[i];
+      if (timers[TIMER_ATA_KEYS].all_times[i] > temp_max) temp_max = timers[TIMER_ATA_KEYS].all_times[i];
     }
-    printf("Average all2all time (per PE): %f seconds\n", temp/num_records);
+    printf("Average all2all time (per PE) seconds average: %f, min: %f, max: %f\n", temp/num_records, temp_min, temp_max);
   }
 }
 
@@ -691,6 +742,8 @@ static void print_run_info(FILE * fp)
     fprintf(fp,"Randomized All2All\t");
 #elif INCAST
     fprintf(fp,"Incast All2All\t");
+#elif FANCY_SQUARE
+    fprintf(fp,"Fancy Latin Square All2All\t");
 #else
     fprintf(fp,"Round Robin All2All\t");
 #endif
@@ -901,3 +954,25 @@ static void shuffle(void * array, size_t n, size_t size)
 }
 #endif
 
+
+
+/*
+ * Check if a number is a power of 2
+ */
+static int isPowerOfTwo (uint64_t x)
+{
+  return ((x != 0) && !(x & (x - 1)));
+}
+
+/*
+ * for numbers that are power of two, get the exponent
+ */
+static int getExponentOfPowerOfTwo (uint64_t x)
+{
+ int exponent = 0;
+ while (((x % 2) == 0) && x > 1){ /* While x is even and > 1 */
+   x /= 2;
+   exponent ++;
+ }
+ return (exponent);
+}
