@@ -1,0 +1,32 @@
+#!/bin/bash
+#PBS -N isx
+#PBS -m n
+#PBS -l nodes=8:ppn=4,ncpus=2
+#PBS -l walltime=1:00:00
+ 
+# By default script starts in home directory, so cd to path submitted job command file
+cd $PBS_O_WORKDIR
+ 
+# Get number of total number of hosts. PBS_NODEFILE should contain list of 8 (nodes) x 4 (ppn) hostnames
+n=$(cat $PBS_NODEFILE | wc -l)
+ 
+# Get number of PEs per node from the PBS_NODEFILE file 
+# assumes all nodes have the same ppn (this is true here for Neptune
+ppn_info=$(uniq -c $PBS_NODEFILE | head -1 | awk '{split($0,a," "); print a[1]}')
+nodes_info=$(uniq -c $PBS_NODEFILE | wc -l)
+
+export SHMEMX_LAYOUT_INFO_TOPOLOGY=IB_SWITCH
+export SHMEMX_LAYOUT_INFO_NODES=$nodes_info
+export SHMEMX_LAYOUT_INFO_PPN=$ppn_info
+myinfofile=infofile.$PBS_JOBID
+#echo  $nodes_info, $ppn_info >$myinfofile
+printenv |grep SHMEMX_LAYOUT_INFO_TOPOLOGY >>$myinfofile
+printenv |grep SHMEMX_LAYOUT_INFO_NODES >>$myinfofile
+printenv |grep SHMEMX_LAYOUT_INFO_PPN >>$myinfofile
+ 
+# Translate hostnames to ib0 interface name.
+# genhostfile.sh script provided without support (an example)
+myhostfile=hostfile.$PBS_JOBID
+~/genhostlist.sh -i $PBS_NODEFILE > $myhostfile
+
+mpiexec.hydra -np $n -f $myhostfile ../bin/isx.weak 134217728 out_weak.txt     > output_weak.txt 2>&1
