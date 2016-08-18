@@ -169,4 +169,5 @@ void sprintf128(char *s, KEY_TYPE x);
 #endif
 
 void shmemx_layout_info();
+void communication_model();
 #endif

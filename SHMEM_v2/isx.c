@@ -62,6 +62,8 @@ uint64_t BUCKET_WIDTH; // The size of each bucket
 KEY_TYPE MAX_KEY_VAL; // The maximum possible generated key value
 
 int BUCKET_WIDTH_SHIFT = 0;
+int NUM_NODES = -1; // Number of nodes, used in communication mode, obtained via shmemx_layout_info(). May not be available
+int PES_PER_NODE = -1; // Number of PEs per node (see NUM_NODES above)
 
 volatile int whose_turn;
 
@@ -207,6 +209,7 @@ static char * parse_params(const int argc, char ** argv)
 //experimental code - getting layout info
   shmemx_layout_info();
 
+  communication_model();
 
   return log_file;
 }
@@ -1172,13 +1175,84 @@ typedef struct topology_t
     for(uint64_t i = 0; i < NUM_PES; ++i){
         printf("  PE: %" PRIu64 " node name = %s\n", i, topo_per_pe[i].nodename );
     }
-  }
 
-
-
-  if(shmem_my_pe() == 0){
     printf("  ----------------------------------------------------\n\n");
   }
 
+// seting the global veriables NUM_NODES and PE_PER_NODE  (needed for communication model)
+   NUM_NODES = nodes;
+   PES_PER_NODE = ppn;
+
+}
+
+/*
+ *  Communication model
+ *  data exchange via memcpy, intra-node and inter-node
+ *  assumes balanced (i.e. equal) exchange between PEs. 
+ */
+void communication_model()
+{
+   uint64_t memcpy_bytes_per_pe;
+   uint64_t intra_node_bytes_per_pe;
+   uint64_t inter_node_bytes_per_pe;
+   uint64_t total_per_pe;
+   uint64_t memcpy_bytes_per_node;
+   uint64_t intra_node_bytes_per_node;
+   uint64_t inter_node_bytes_per_node;
+   uint64_t total_per_node;
+   uint64_t memcpy_bytes_total;
+   uint64_t intra_node_bytes_total;
+   uint64_t inter_node_bytes_total;
+   uint64_t total;
+
+   if( NUM_NODES < 0 || PES_PER_NODE <0) {
+     if(shmem_my_pe() == 0){
+       printf("  Communication model not supported, missing information: NUM_NODES, PES_PER_NODE\n");
+       return;
+     }
+   }
+// input:
+//   number of keys per PE  NUM_KEYS_PER_PE
+//   KEY_TYPE size
+//   PEs  NUM_PES
+//   nodes NUM_NODES
+//   ppn PES_PER_NODE
+// output bytes for a singe iteration of the sort: 
+// per PE
+   memcpy_bytes_per_pe     =  NUM_KEYS_PER_PE/ NUM_PES * sizeof(KEY_TYPE);
+   intra_node_bytes_per_pe =  NUM_KEYS_PER_PE/ NUM_PES * (PES_PER_NODE -1) * sizeof(KEY_TYPE);
+   inter_node_bytes_per_pe =  NUM_KEYS_PER_PE/ NUM_PES * (NUM_PES - PES_PER_NODE) * sizeof(KEY_TYPE);
+   total_per_pe            =  memcpy_bytes_per_pe + intra_node_bytes_per_pe + inter_node_bytes_per_pe;
+// per_node
+   memcpy_bytes_per_node     = memcpy_bytes_per_pe * PES_PER_NODE;
+   intra_node_bytes_per_node = intra_node_bytes_per_pe * PES_PER_NODE;
+   inter_node_bytes_per_node = inter_node_bytes_per_pe * PES_PER_NODE ;
+   total_per_node            = memcpy_bytes_per_node + intra_node_bytes_per_node + inter_node_bytes_per_node;
+// total
+   memcpy_bytes_total     = memcpy_bytes_per_node * NUM_NODES;
+   intra_node_bytes_total = intra_node_bytes_per_node * NUM_NODES;
+   inter_node_bytes_total = inter_node_bytes_per_node * NUM_NODES;
+   total                  =  memcpy_bytes_total + intra_node_bytes_total + inter_node_bytes_total;
+//
+
+   if(shmem_my_pe() == 0){
+     printf("  Communication model for one iteration\n");
+     printf("  Num_PES:  %" PRIu64 ", Num_nodes: %d\n", NUM_PES, NUM_NODES);
+     printf("  Per PE:\n");
+     printf("    Memcpy bytes     (per PE): %" PRIu64 "\n", memcpy_bytes_per_pe);
+     printf("    intra node bytes (per PE): %" PRIu64 "\n", intra_node_bytes_per_pe);
+     printf("    inter node bytes (per PE): %" PRIu64 "\n", inter_node_bytes_per_pe);
+     printf("    total bytes      (per PE): %" PRIu64 "\n", total_per_pe);
+     printf("  Per Node:\n");
+     printf("    Memcpy bytes     (per node): %" PRIu64 "\n", memcpy_bytes_per_node);
+     printf("    intra node bytes (per node): %" PRIu64 "\n", intra_node_bytes_per_node);
+     printf("    inter node bytes (per node): %" PRIu64 "\n", inter_node_bytes_per_node);
+     printf("    total bytes      (per node): %" PRIu64 "\n", total_per_node);
+     printf("  Total:\n");
+     printf("    Memcpy bytes     (total): %" PRIu64 " , (fraction of total: %4.3f)\n", memcpy_bytes_total, (float)memcpy_bytes_total/(float)total);
+     printf("    intra node bytes (total): %" PRIu64 " , (fraction of total: %4.3f)\n", intra_node_bytes_total, (float)intra_node_bytes_total/(float)total);
+     printf("    inter node bytes (total): %" PRIu64 " , (fraction of total: %4.3f)\n", inter_node_bytes_total, (float)inter_node_bytes_total/(float)total);
+     printf("    total bytes      (total): %" PRIu64 "\n", total);
+   }
 
 }
