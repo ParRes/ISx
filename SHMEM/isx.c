@@ -68,7 +68,7 @@ long long int my_bucket_size = 0;
 #define KEY_BUFFER_SIZE (1uLL<<28uLL)
 
 // The receive array for the All2All exchange
-KEY_TYPE my_bucket_keys[KEY_BUFFER_SIZE];
+KEY_TYPE *my_bucket_keys;
 
 #ifdef PERMUTE
 int * permute_array;
@@ -77,6 +77,12 @@ int * permute_array;
 int main(const int argc,  char ** argv)
 {
   shmem_init();
+#ifdef OPENSHMEM_COMPLIANT
+  my_bucket_keys = (KEY_TYPE*) shmem_malloc(KEY_BUFFER_SIZE * sizeof(KEY_TYPE));
+#else
+  my_bucket_keys = (KEY_TYPE*) shmalloc(KEY_BUFFER_SIZE * sizeof(KEY_TYPE));
+#endif
+
 
   init_shmem_sync_array(pSync); 
 
@@ -239,6 +245,12 @@ static int bucket_sort(void)
 
     shmem_barrier_all();
   }
+
+#ifdef OPENSHMEM_COMPLIANT
+  shmem_free(my_bucket_keys);
+#else
+  shfree(my_bucket_keys);
+#endif
 
   return err;
 }

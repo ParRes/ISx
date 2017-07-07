@@ -49,6 +49,7 @@ script:
     - export PATH=$HOME/opt/sandia-shmem-ofi/bin:$HOME/opt/hydra/bin:$BASE_PATH
     - export LD_LIBRARY_PATH=$HOME/opt/sandia-shmem-ofi/lib:$BASE_LD_LIBRARY_PATH
     - export OSHRUN_LAUNCHER="mpiexec.hydra"
+    - export SMA_SYMMETRIC_SIZE='4G'
     - cd $ISX_SRC/SHMEM
     - make CC=oshcc
     - mpiexec.hydra -np 4 ./bin/isx.strong 134217728 output_strong
