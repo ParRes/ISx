@@ -56,6 +56,11 @@ script:
     - mpiexec.hydra -np 4 ./bin/isx.weak 33554432 output_weak
     - mpiexec.hydra -np 4 ./bin/isx.weak_iso 33554432 output_weak_iso
     - make clean
+    - make uint32 CC=oshcc
+    - mpiexec.hydra -np 4 ./bin/isx.strong 134217728 output_strong
+    - mpiexec.hydra -np 4 ./bin/isx.weak 33554432 output_weak
+    - mpiexec.hydra -np 4 ./bin/isx.weak_iso 33554432 output_weak_iso
+    - make clean
     - make debug CC=oshcc
     - mpiexec.hydra -np 4 ./bin/isx.strong 16 output_strong
     - mpiexec.hydra -np 4 ./bin/isx.weak 16 output_weak
