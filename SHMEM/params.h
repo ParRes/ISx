@@ -31,6 +31,7 @@ POSSIBILITY OF SUCH DAMAGE.
 */
 #ifndef _PARAMS_H
 #define _PARAMS_H
+#include <limits.h>
 
 //defining mayor and minor version number of ISx code
 #define MAJOR_VERSION_NUMBER 1
@@ -77,7 +78,7 @@ typedef int KEY_TYPE;
 #ifdef DEBUG
 #define DEFAULT_MAX_KEY (32uLL)
 #elif defined(UINT32_KEYS)
-#define DEFAULT_MAX_KEY (unsigned long long)(1uLL<<31uLL)
+#define DEFAULT_MAX_KEY (unsigned long long) UINT_MAX
 #else
 #define DEFAULT_MAX_KEY (unsigned long long)(1uLL<<28uLL)
 #endif
