@@ -894,7 +894,7 @@ static void create_permutation_array()
 }
 
 /*
- * Randomly shuffles a generic array
+ * Randomly shuffles an array of PE ids
  */
 static void shuffle(int* array, size_t n) {
     struct timeval tv;
