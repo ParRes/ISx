@@ -12,7 +12,7 @@ WEAK = 2
 WEAKISO = 3
 ###
 
-.PHONY: all clean debug
+.PHONY: all clean debug uint32
 
 SRCS := $(wildcard *.c)
 OBJDIR := obj
@@ -34,6 +34,9 @@ optimized: all
 
 debug: CFLAGS += $(DEBUGFLAGS)
 debug: all
+
+uint32: CFLAGS += -DUINT32_KEYS 
+uint32: all
 
 $(STRONG_EXE):$(STRONG_OBJS)
 	@mkdir -p $(BINDIR)

@@ -31,6 +31,7 @@ POSSIBILITY OF SUCH DAMAGE.
 */
 #ifndef _PARAMS_H
 #define _PARAMS_H
+#include <limits.h>
 
 //defining mayor and minor version number of ISx code
 #define MAJOR_VERSION_NUMBER 1
@@ -43,7 +44,11 @@ POSSIBILITY OF SUCH DAMAGE.
 
 // The data type used for the keys
 // If you change this, you will have to change the SHMEM API calls used
+#ifdef UINT32_KEYS
+typedef uint32_t KEY_TYPE;
+#else
 typedef int KEY_TYPE;
+#endif
 
 // STRONG SCALING: Total number of keys are fixed and the number of keys per PE are reduced with increasing number of PEs
 //  Invariants: Total number of keys, max key value
@@ -72,6 +77,8 @@ typedef int KEY_TYPE;
 // to keep the BUCKET_WIDTH constant per PE.
 #ifdef DEBUG
 #define DEFAULT_MAX_KEY (32uLL)
+#elif defined(UINT32_KEYS)
+#define DEFAULT_MAX_KEY (unsigned long long) UINT_MAX
 #else
 #define DEFAULT_MAX_KEY (unsigned long long)(1uLL<<28uLL)
 #endif
