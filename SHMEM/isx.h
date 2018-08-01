@@ -58,7 +58,7 @@ static void create_permutation_array();
 /*
  * Randomly shuffles a generic array
  */
-static void shuffle(void * array, size_t n, size_t size);
+static void shuffle(int* array, size_t n);
 #endif
 
 
