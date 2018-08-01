@@ -33,7 +33,7 @@ before_install:
     - git clone https://github.com/Sandia-OpenSHMEM/SOS.git src/sandia-shmem
     - cd src/sandia-shmem
     - ./autogen.sh
-    - ./configure --with-ofi=$HOME/opt/libfabric/ --disable-fortran --prefix=$HOME/opt/sandia-shmem-ofi --enable-error-checking --enable-remote-virtual-addressing --enable-picky --enable-pmi-simple
+    - ./configure --with-ofi=$HOME/opt/libfabric/ --disable-fortran --prefix=$HOME/opt/sandia-shmem-ofi --enable-error-checking --enable-picky --enable-pmi-simple
     - make -j 4
     - make install
     - cd ../..
