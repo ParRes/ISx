@@ -122,8 +122,7 @@ static char * parse_params(const int argc, char ** argv)
   switch(SCALING_OPTION){
     case STRONG:
       {
-        //TOTAL_KEYS = (uint64_t) atoi(argv[1]);
-        TOTAL_KEYS = (uint64_t) strtoull(argv[1], NULL, 10);            // correcting conversion from ascii to uint64_t
+        TOTAL_KEYS = (uint64_t) strtoull(argv[1], NULL, 10);        
         NUM_KEYS_PER_PE = (uint64_t) ceil((double)TOTAL_KEYS/NUM_PES);
         sprintf(scaling_msg,"STRONG");
         break;
@@ -131,16 +130,14 @@ static char * parse_params(const int argc, char ** argv)
 
     case WEAK:
       {
-        //NUM_KEYS_PER_PE = (uint64_t) (atoi(argv[1]));
-        NUM_KEYS_PER_PE = (uint64_t) (strtoull(argv[1], NULL, 10));         // correcting conversion from ascii to uint64_t
+        NUM_KEYS_PER_PE = (uint64_t) (strtoull(argv[1], NULL, 10));     
         sprintf(scaling_msg,"WEAK");
         break;
       }
 
     case WEAK_ISOBUCKET:
       {
-        //NUM_KEYS_PER_PE = (uint64_t) (atoi(argv[1]));
-        NUM_KEYS_PER_PE = (uint64_t) (strtoull(argv[1], NULL, 10));         // correcting conversion from ascii to uint64_t
+        NUM_KEYS_PER_PE = (uint64_t) (strtoull(argv[1], NULL, 10));     
         BUCKET_WIDTH = ISO_BUCKET_WIDTH; 
         MAX_KEY_VAL = (uint64_t) (NUM_PES * BUCKET_WIDTH);
         sprintf(scaling_msg,"WEAK_ISOBUCKET");

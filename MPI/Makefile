@@ -1,4 +1,4 @@
-CC = cc
+CC = mpicc
 LD = $(CC)
 DEBUGFLAGS = -g -p -O0 -DDEBUG
 OPTFLAGS = -O3 -DNDEBUG -mavx
