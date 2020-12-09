@@ -76,9 +76,7 @@ typedef int KEY_TYPE;
 #define DEFAULT_MAX_KEY (unsigned long long)(1uLL<<28uLL)
 #endif
 
-// The number of iterations that an integer sort is performed
-// (Burn in iterations are done first and are not timed)
-#define NUM_ITERATIONS (1u)
+// Burn in iterations are done first and are not timed
 #define BURN_IN (1u)
 
 #define BARRIER_ATA

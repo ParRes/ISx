@@ -58,6 +58,7 @@ uint64_t NUM_KEYS_PER_PE; // Number of keys generated on each PE
 uint64_t NUM_BUCKETS; // The number of buckets in the bucket sort
 uint64_t BUCKET_WIDTH; // The size of each bucket
 uint64_t MAX_KEY_VAL; // The maximum possible generated key value
+uint64_t NUM_ITERATIONS; // Number of iterations that the sort is performed
 
 volatile int whose_turn;
 
@@ -101,7 +102,7 @@ int main(const int argc,  char ** argv)
 // to set all necessary runtime values and options
 static char * parse_params(const int argc, char ** argv)
 {
-  if(argc != 3)
+  if(argc < 3 || argc > 4)
   {
     if( shmem_my_pe() == 0){
       printf("Usage:  \n");
@@ -116,8 +117,17 @@ static char * parse_params(const int argc, char ** argv)
   MAX_KEY_VAL = DEFAULT_MAX_KEY;
   NUM_BUCKETS = NUM_PES;
   BUCKET_WIDTH = (uint64_t) ceil((double)MAX_KEY_VAL/NUM_BUCKETS);
-  char * log_file = argv[2];
   char scaling_msg[64];
+  char * log_file;
+
+  if(argc == 3) {
+    NUM_ITERATIONS = 1u;
+    log_file = argv[2];
+  }
+  if(argc == 4) {
+    NUM_ITERATIONS = (uint64_t) strtoull(argv[2], NULL, 10);
+    log_file = argv[3];
+  }
 
   switch(SCALING_OPTION){
     case STRONG:
