@@ -106,7 +106,8 @@ static char * parse_params(const int argc, char ** argv)
   {
     if( shmem_my_pe() == 0){
       printf("Usage:  \n");
-      printf("  ./%s <total num keys(strong) | keys per pe(weak)> <log_file>\n",argv[0]);
+      printf("  ./%s <total num keys(strong) | keys per pe(weak)> [iterations] "
+             "<log_file>\n",argv[0]);
     }
 
     shmem_finalize();
