@@ -100,7 +100,6 @@ static char * parse_params(const int argc, char ** argv)
     NUM_ITERATIONS = (uint64_t) strtoull(argv[2], NULL, 10);
     log_file = argv[3];
   }
-
   else {
     if( my_rank == 0){
       printf("Usage:  \n");
