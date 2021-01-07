@@ -85,16 +85,6 @@ int main(int argc,  char ** argv)
 // to set all necessary runtime values and options
 static char * parse_params(const int argc, char ** argv)
 {
-  if(argc < 3 || argc > 4)
-  {
-    if( my_rank == 0){
-      printf("Usage:  \n");
-      printf("  ./%s <total num keys(strong) | keys per pe(weak)> [iterations] "
-             "<log_file>\n",argv[0]);
-    }
-    exit(1);
-  }
-
   NUM_PES = (uint64_t) comm_size;
   MAX_KEY_VAL = DEFAULT_MAX_KEY;
   NUM_BUCKETS = NUM_PES;
@@ -106,9 +96,18 @@ static char * parse_params(const int argc, char ** argv)
     NUM_ITERATIONS = 1u;
     log_file = argv[2];
   }
-  if(argc == 4) {
+  else if(argc == 4) {
     NUM_ITERATIONS = (uint64_t) strtoull(argv[2], NULL, 10);
     log_file = argv[3];
+  }
+
+  else {
+    if( my_rank == 0){
+      printf("Usage:  \n");
+      printf("  ./%s <total num keys(strong) | keys per pe(weak)> [iterations] "
+             "<log_file>\n",argv[0]);
+    }
+    exit(1);
   }
 
   switch(SCALING_OPTION){
