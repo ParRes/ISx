@@ -53,6 +53,7 @@ uint64_t NUM_KEYS_PER_PE; // Number of keys generated on each PE
 uint64_t NUM_BUCKETS; // The number of buckets in the bucket sort
 uint64_t BUCKET_WIDTH; // The size of each bucket
 uint64_t MAX_KEY_VAL; // The maximum possible generated key value
+uint64_t NUM_ITERATIONS; // Number of iterations that the sort is performed
 
 int my_rank;
 int comm_size;
@@ -84,21 +85,29 @@ int main(int argc,  char ** argv)
 // to set all necessary runtime values and options
 static char * parse_params(const int argc, char ** argv)
 {
-  if(argc != 3)
-  {
-    if( my_rank == 0){
-      printf("Usage:  \n");
-      printf("  ./%s <total num keys(strong) | keys per pe(weak)> <log_file>\n",argv[0]);
-    }
-    exit(1);
-  }
-
   NUM_PES = (uint64_t) comm_size;
   MAX_KEY_VAL = DEFAULT_MAX_KEY;
   NUM_BUCKETS = NUM_PES;
   BUCKET_WIDTH = (uint64_t) ceil((double)MAX_KEY_VAL/NUM_BUCKETS);
-  char * log_file = argv[2];
   char scaling_msg[64];
+  char * log_file;
+
+  if(argc == 3) {
+    NUM_ITERATIONS = 1u;
+    log_file = argv[2];
+  }
+  else if(argc == 4) {
+    NUM_ITERATIONS = (uint64_t) strtoull(argv[2], NULL, 10);
+    log_file = argv[3];
+  }
+  else {
+    if( my_rank == 0){
+      printf("Usage:  \n");
+      printf("  ./%s <total num keys(strong) | keys per pe(weak)> [iterations] "
+             "<log_file>\n",argv[0]);
+    }
+    exit(1);
+  }
 
   switch(SCALING_OPTION){
     case STRONG:
@@ -150,7 +159,7 @@ static char * parse_params(const int argc, char ** argv)
     printf("  Number of Keys per PE: %" PRIu64 "\n", NUM_KEYS_PER_PE);
     printf("  Max Key Value: %" PRIu64 "\n", MAX_KEY_VAL);
     printf("  Bucket Width: %" PRIu64 "\n", BUCKET_WIDTH);
-    printf("  Number of Iterations: %u\n", NUM_ITERATIONS);
+    printf("  Number of Iterations: %" PRIu64 "\n", NUM_ITERATIONS);
     printf("  Number of PEs: %" PRIu64 "\n", NUM_PES);
     printf("  %s Scaling!\n",scaling_msg);
     }
@@ -682,7 +691,7 @@ static void print_run_info(FILE * fp)
   fprintf(fp,"MPI\t");
   fprintf(fp,"NUM_PES %" PRIu64 "\t", NUM_PES);
   fprintf(fp,"Max_Key %" PRIu64 "\t", MAX_KEY_VAL); 
-  fprintf(fp,"Num_Iters %u\t", NUM_ITERATIONS);
+  fprintf(fp,"Num_Iters %" PRIu64 "\t", NUM_ITERATIONS);
 
   switch(SCALING_OPTION){
     case STRONG: {

@@ -102,17 +102,6 @@ int main(const int argc,  char ** argv)
 // to set all necessary runtime values and options
 static char * parse_params(const int argc, char ** argv)
 {
-  if(argc < 3 || argc > 4)
-  {
-    if( shmem_my_pe() == 0){
-      printf("Usage:  \n");
-      printf("  ./%s <total num keys(strong) | keys per pe(weak)> [iterations] "
-             "<log_file>\n",argv[0]);
-    }
-
-    shmem_finalize();
-    exit(1);
-  }
 
   NUM_PES = (uint64_t) shmem_n_pes();
   MAX_KEY_VAL = DEFAULT_MAX_KEY;
@@ -125,9 +114,19 @@ static char * parse_params(const int argc, char ** argv)
     NUM_ITERATIONS = 1u;
     log_file = argv[2];
   }
-  if(argc == 4) {
+  else if(argc == 4) {
     NUM_ITERATIONS = (uint64_t) strtoull(argv[2], NULL, 10);
     log_file = argv[3];
+  }
+  else {
+    if( shmem_my_pe() == 0){
+      printf("Usage:  \n");
+      printf("  ./%s <total num keys(strong) | keys per pe(weak)> [iterations] "
+             "<log_file>\n",argv[0]);
+    }
+
+    shmem_finalize();
+    exit(1);
   }
 
   switch(SCALING_OPTION){
@@ -182,7 +181,7 @@ static char * parse_params(const int argc, char ** argv)
     printf("  Number of Keys per PE: %" PRIu64 "\n", NUM_KEYS_PER_PE);
     printf("  Max Key Value: %" PRIu64 "\n", MAX_KEY_VAL);
     printf("  Bucket Width: %" PRIu64 "\n", BUCKET_WIDTH);
-    printf("  Number of Iterations: %u\n", NUM_ITERATIONS);
+    printf("  Number of Iterations: %" PRIu64 "\n", NUM_ITERATIONS);
     printf("  Number of PEs: %" PRIu64 "\n", NUM_PES);
     printf("  %s Scaling!\n",scaling_msg);
     }
@@ -686,7 +685,7 @@ static void print_run_info(FILE * fp)
   fprintf(fp,"SHMEM\t");
   fprintf(fp,"NUM_PES %" PRIu64 "\t", NUM_PES);
   fprintf(fp,"Max_Key %" PRIu64 "\t", MAX_KEY_VAL); 
-  fprintf(fp,"Num_Iters %u\t", NUM_ITERATIONS);
+  fprintf(fp,"Num_Iters %" PRIu64 "\t", NUM_ITERATIONS);
 
   switch(SCALING_OPTION){
     case STRONG: {
