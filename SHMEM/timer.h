@@ -40,6 +40,7 @@ typedef struct
 {
   double * seconds;
   double * all_times;
+  double * all_averages;
   unsigned int * count;
   unsigned int * all_counts;
   unsigned int num_iters;

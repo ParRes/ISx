@@ -91,7 +91,8 @@ int main(const int argc,  char ** argv)
 
   int err = bucket_sort();
 
-  log_times(log_file);
+  //log_times(log_file);
+  klog_times(log_file); // Kieran Edit
 
   shmem_finalize();
   return err;
@@ -601,7 +602,6 @@ static int verify_results(int const * restrict const my_local_key_counts,
 /*
  * Gathers all the timing information from each PE and prints
  * it to a file. All information from a PE is printed as a row in a tab seperated file
- */
 static void log_times(char * log_file)
 {
   FILE * fp = NULL;
@@ -609,6 +609,7 @@ static void log_times(char * log_file)
   for(uint64_t i = 0; i < TIMER_NTIMERS; ++i){
     timers[i].all_times = gather_rank_times(&timers[i]);
     timers[i].all_counts = gather_rank_counts(&timers[i]);
+    timers[i].all_averages = kgather_rank_times(&timers[i]);
   }
 
   if(shmem_my_pe() == ROOT_PE)
@@ -635,6 +636,100 @@ static void log_times(char * log_file)
   }
 
 }
+ */
+
+// Kieran Edit
+/*
+static void khlog_times(char * log_file)
+{
+  FILE * fp = NULL;
+
+  const int ALL_TIMES = 0;
+  const int ALL_AVERAGES = 1;
+
+
+  for(uint64_t i = 0; i < TIMER_NTIMERS; ++i){
+    //if(shmem_my_pe() == ROOT_PE) {
+      timers[i].all_times = kgather_rank_times(ALL_TIMES, &timers[i]);
+      printf("PE%d Made it past all_times kgather\n", shmem_my_pe());
+    //}
+    timers[i].all_counts = gather_rank_counts(&timers[i]);
+    timers[i].all_averages = kgather_rank_times(ALL_AVERAGES, &timers[i]);
+    printf("PE%d Made it past all_averages kgather\n", shmem_my_pe());
+  }
+
+  if (shmem_my_pe() == ROOT_PE)
+  {
+    int print_names = 0;
+    if(file_exists(log_file) != 1){
+      print_names = 1;
+    }
+
+    if((fp = fopen(log_file, "a+b"))==NULL){
+      perror("Error opening log file:");
+      exit(1);
+    }
+
+    if(print_names == 1){
+      print_run_info(fp);
+      print_timer_names(fp);
+    }
+    print_timer_values(fp);
+
+    report_summary_stats();
+
+    fclose(fp);
+  }
+}
+*/
+
+static void klog_times(char * log_file)
+{
+  FILE * fp = NULL;
+
+  if(shmem_my_pe() == ROOT_PE)
+  {
+    int print_names = 0;
+    if(file_exists(log_file) != 1){
+      print_names = 1;
+    }
+
+    if((fp = fopen(log_file, "a+b"))==NULL){
+      perror("Error opening log file:");
+      exit(1);
+    }
+
+    if(print_names == 1){
+      print_run_info(fp);
+      print_timer_names(fp);
+    }
+    fclose(fp);
+  }
+
+  printf("Made it past initial log file setup\n");
+
+  for (uint64_t k = 0; k < NUM_PES; ++k) {
+    if (shmem_my_pe() == k) {
+      for(uint64_t i = 0; i < TIMER_NTIMERS; ++i){
+        //timers[i].all_times = kgather_rank_times(log_file, &timers[i]);
+        timers[i].all_averages = kgather_rank_times(log_file, &timers[i]);
+        timers[i].all_counts = gather_rank_counts(&timers[i]);
+      }
+    }
+  }
+
+  if(shmem_my_pe() == ROOT_PE)
+  {
+    //print_timer_values(fp);
+
+    printf("Made it past kgather\n");
+    kreport_summary_stats();
+
+    //fclose(fp);
+  }
+
+}
+// End Kieran Edit
 
 /*
  * Computes the average total time and average all2all time and prints it to the command line
@@ -645,19 +740,61 @@ static void report_summary_stats(void)
   if(timers[TIMER_TOTAL].seconds_iter > 0) {
     const uint32_t num_records = NUM_PES * timers[TIMER_TOTAL].seconds_iter;
     double temp = 0.0;
+    double ktemp = 0.0; // Kieran Edit
     for(uint64_t i = 0; i < num_records; ++i){
       temp += timers[TIMER_TOTAL].all_times[i];
     }
-      printf("Average total time (per PE): %f seconds\n", temp/num_records);
+    printf("Average total time (per PE): %f seconds\n", temp/num_records);
+    // Kieran Edit
+    for(uint64_t i = 0; i < NUM_PES; ++i){
+      printf("PE%d: %f seconds\n", i, timers[TIMER_TOTAL].all_averages[i]);
+      ktemp += timers[TIMER_TOTAL].all_averages[i];
+    }
+    printf("Kie's Average total time (per PE): %f seconds\n", ktemp/NUM_PES);
+    // End Kieran Edit
   }
 
   if(timers[TIMER_ATA_KEYS].seconds_iter >0) {
     const uint32_t num_records = NUM_PES * timers[TIMER_ATA_KEYS].seconds_iter;
     double temp = 0.0;
+    double ktemp = 0.0; // Kieran Edit
     for(uint64_t i = 0; i < num_records; ++i){
       temp += timers[TIMER_ATA_KEYS].all_times[i];
     }
     printf("Average all2all time (per PE): %f seconds\n", temp/num_records);
+    // Kieran Edit
+    for(uint64_t i = 0; i < NUM_PES; ++i){
+      ktemp += timers[TIMER_ATA_KEYS].all_averages[i];
+    }
+    printf("Kie's Average all2all time (per PE): %f seconds\n", ktemp/NUM_PES);
+    // End Kieran Edit
+  }
+}
+
+static void kreport_summary_stats(void)
+{
+  
+  if(timers[TIMER_TOTAL].seconds_iter > 0) {
+    const uint32_t num_records = NUM_PES * timers[TIMER_TOTAL].seconds_iter;
+    double ktemp = 0.0; // Kieran Edit
+    // Kieran Edit
+    for(uint64_t i = 0; i < NUM_PES; ++i){
+      printf("PE%d: %f seconds\n", i, timers[TIMER_TOTAL].all_averages[i]);
+      ktemp += timers[TIMER_TOTAL].all_averages[i];
+    }
+    printf("Kie's Average total time (per PE): %f seconds\n", ktemp/NUM_PES);
+    // End Kieran Edit
+  }
+
+  if(timers[TIMER_ATA_KEYS].seconds_iter >0) {
+    const uint32_t num_records = NUM_PES * timers[TIMER_ATA_KEYS].seconds_iter;
+    double ktemp = 0.0; // Kieran Edit
+    // Kieran Edit
+    for(uint64_t i = 0; i < NUM_PES; ++i){
+      ktemp += timers[TIMER_ATA_KEYS].all_averages[i];
+    }
+    printf("Kie's Average all2all time (per PE): %f seconds\n", ktemp/NUM_PES);
+    // End Kieran Edit
   }
 }
 
@@ -741,6 +878,50 @@ static void print_timer_values(FILE * fp)
   }
 }
 
+// Kieran Edit
+//
+
+static void khprint_timer_values(FILE * fp)
+{
+  unsigned int num_records = NUM_PES * NUM_ITERATIONS; 
+
+  for(uint64_t i = 0; i < num_records; ++i) {
+    for(int t = 0; t < TIMER_NTIMERS; ++t){
+      if(timers[t].all_times != NULL){
+        fprintf(fp,"%f\t", timers[t].all_times[i]);
+      }
+      if(timers[t].all_counts != NULL){
+        fprintf(fp,"%u\t", timers[t].all_counts[i]);
+      }
+    }
+    fprintf(fp,"\n");
+  }
+}
+
+static void kprint_timer_values(FILE * fp, double * my_times)
+{
+  unsigned int num_records = NUM_PES * NUM_ITERATIONS; 
+  unsigned int knum_records =NUM_ITERATIONS; 
+
+  printf("PE%d made it into kprint\n", shmem_my_pe());
+
+  for(uint64_t i = 0; i < knum_records; ++i) {
+    printf("my_times != NULL is %d\n", my_times != NULL);
+    if(my_times != NULL){
+      fprintf(fp,"%f\n", my_times[i]);
+      printf("PE%d wrote: my_times =%f\n", shmem_my_pe(),  my_times[i]);
+    }
+    /*
+    if(my_counts != NULL){
+      fprintf(fp,"%u\t", my_counts[i]);
+    }
+    */
+  }
+    fprintf(fp,"\n");
+  printf("PE%d made through kprint\n", shmem_my_pe());
+}
+// End Kieran Edit
+
 /* 
  * Aggregates the per PE timing information
  */ 
@@ -781,6 +962,111 @@ static double * gather_rank_times(_timer_t * const timer)
     return NULL;
   }
 }
+
+// Kieran Edit
+static double * kgather_rank_times(char * log_file, _timer_t * const timer)
+{
+  if(timer->seconds_iter > 0) {
+
+    assert(timer->seconds_iter == timer->num_iters);
+
+    const unsigned int num_records = NUM_PES * timer->seconds_iter;
+    const unsigned int num_averages = NUM_PES;
+#ifdef OPENSHMEM_COMPLIANT
+    double * my_times = shmem_malloc(timer->seconds_iter * sizeof(double));
+#else
+    double * my_times = shmalloc(timer->seconds_iter * sizeof(double));
+#endif
+    memcpy(my_times, timer->seconds, timer->seconds_iter * sizeof(double));
+
+    // Added to create an kall_times array that will house all times.
+    //if (shmem_my_pe() == ROOT_PE) {
+      //double * kall_times = shmem_malloc(NUM_PES * timer->seconds_iter * sizeof(double));
+    //}
+
+    shmem_barrier_all();
+    /*
+    if (shmem_my_pe() == ROOT_PE) {
+      printf("PE%d just put into PE0\n", shmem_my_pe());
+      memcpy(kall_times, my_times, timer->seconds_iter * sizeof(double));
+    } else {
+      printf("PE%d just put into PE0\n", shmem_my_pe());
+      shmem_double_put_nbi(kall_times + (shmem_my_pe() * timer->seconds_iter), my_times, timer->seconds_iter, ROOT_PE); 
+    }
+    printf("PE%d is done with put\n", shmem_my_pe());
+    //shmem_barrier_all();
+    printf("PE%d is past put barrier\n", shmem_my_pe());
+    */
+    
+    for(int i = 0; i < NUM_PES; ++i) {
+      if ( i == shmem_my_pe()) {
+        FILE * fp = NULL;
+        if((fp = fopen(log_file, "a+b"))==NULL){
+          perror("Error opening log file:");
+          exit(1);
+        }
+
+        kprint_timer_values(fp, my_times);
+        fclose(fp);
+      }
+      shmem_barrier_all();
+    }
+
+    double * my_average = shmem_malloc(sizeof(double));
+
+    double temp = 0.0;
+    for(int i = 0; i < timer->seconds_iter; i++) {
+      temp += my_times[i];
+    }
+
+    *my_average = temp/(timer->seconds_iter);
+
+    if (shmem_my_pe() == ROOT_PE) {
+      printf("PE%d average: %f\n", shmem_my_pe(), *my_average);
+      printf("\nkgather finshed\n\n");
+      //printf("PE%d kall_times: %f\n", shmem_my_pe(), *kall_times);
+      //khprint_timer_values(fp, my_times, current_timer);
+      //++current_timer;
+    }
+
+#ifdef OPENSHMEM_COMPLIANT
+    double * all_times = shmem_malloc( num_records * sizeof(double));
+#else
+    double * all_times = shmalloc( num_records * sizeof(double));
+#endif
+
+    double * all_averages = shmem_malloc( num_averages * sizeof(double));
+
+    shmem_barrier_all();
+    
+    shmem_fcollect64(all_averages, my_average, 1, 0, 0, NUM_PES, pSync);
+    shmem_barrier_all();
+
+#ifdef OPENSHMEM_COMPLIANT
+    shmem_free(my_times);
+#else
+    shfree(my_times);
+#endif
+
+    shmem_free(my_average);
+
+    /*
+    if (timer_control) {
+      printf("PE%d returning all_averages\n", shmem_my_pe());
+      return all_averages;
+    } else {
+      printf("PE%d returning all_times\n", shmem_my_pe());
+      return kall_times; 
+    }
+    */
+    return all_averages;
+  }
+
+  else{
+    return NULL;
+  }
+}
+// End Kieran Edit
 
 /*
  * Aggregates the per PE timing 'count' information 
@@ -843,7 +1129,7 @@ static void init_shmem_sync_array(long * restrict const pSync)
   }
   shmem_barrier_all();
 }
-
+;
 /*
  * Tests whether or not a file exists. 
  * Returns 1 if file exists

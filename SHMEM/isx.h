@@ -137,11 +137,17 @@ static inline void init_array(int * array, const int size)
 static int file_exists(char * filename);
 
 static void log_times(char * log_directory);
+static void klog_times(char * log_directory); // Kieran Edit
+static void khlog_times(char * log_directory); // Kieran Edit
 static void report_summary_stats(void);
+static void kreport_summary_stats(void);
 static void print_timer_names(FILE * fp);
 static void print_run_info(FILE * fp);
 static void print_timer_values(FILE * fp);
 static double * gather_rank_times(_timer_t * const timer);
+// Kieran Edit
+static double * kgather_rank_times(char * log_file, _timer_t * const timer);
+// End Kieran Edit
 static unsigned int * gather_rank_counts(_timer_t * const timer);
 
 #endif
