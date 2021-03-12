@@ -60,8 +60,7 @@ void timer_reset(_timer_t * const timer, const unsigned int num_iters)
     timer->seconds[i] = 0.0;
     timer->count[i] = 0;
   }
-  free(timer->all_times);
-  free(timer->all_counts);
+  free(timer->all_averages);
   timer->num_iters = num_iters;
   timer->seconds_iter = 0;
   timer->count_iter = 0;
@@ -77,8 +76,7 @@ void init_timers(const unsigned int num_iters)
     if(first_call == true) {
       timers[t].seconds = (double *) malloc(num_iters * sizeof(double));
       timers[t].count = (unsigned int *) malloc(num_iters * sizeof(unsigned int));
-      timers[t].all_times = NULL;
-      timers[t].all_counts = NULL;
+      timers[t].all_averages = NULL;
     }
     timer_reset(&timers[t], num_iters);
   }

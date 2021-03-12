@@ -1,32 +1,32 @@
 /*
 Copyright (c) 2015, Intel Corporation
 
-Redistribution and use in source and binary forms, with or without 
-modification, are permitted provided that the following conditions 
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
 are met:
 
-    * Redistributions of source code must retain the above copyright 
+    * Redistributions of source code must retain the above copyright
       notice, this list of conditions and the following disclaimer.
-    * Redistributions in binary form must reproduce the above 
-      copyright notice, this list of conditions and the following 
-      disclaimer in the documentation and/or other materials provided 
+    * Redistributions in binary form must reproduce the above
+      copyright notice, this list of conditions and the following
+      disclaimer in the documentation and/or other materials provided
       with the distribution.
-    * Neither the name of Intel Corporation nor the names of its 
-      contributors may be used to endorse or promote products 
-      derived from this software without specific prior written 
+    * Neither the name of Intel Corporation nor the names of its
+      contributors may be used to endorse or promote products
+      derived from this software without specific prior written
       permission.
 
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS 
-"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT 
-LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS 
-FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE 
-COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, 
-INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, 
-BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; 
-LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER 
-CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT 
-LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN 
-ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE 
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 */
 
@@ -127,8 +127,8 @@ static char * parse_params(const int argc, char ** argv)
 
     case WEAK_ISOBUCKET:
       {
-        NUM_KEYS_PER_PE = (uint64_t) (strtoull(argv[1], NULL, 10)); 
-        BUCKET_WIDTH = ISO_BUCKET_WIDTH; 
+        NUM_KEYS_PER_PE = (uint64_t) (strtoull(argv[1], NULL, 10));
+        BUCKET_WIDTH = ISO_BUCKET_WIDTH;
         MAX_KEY_VAL = (uint64_t) (NUM_PES * BUCKET_WIDTH);
         sprintf(scaling_msg,"WEAK_ISOBUCKET");
         break;
@@ -176,7 +176,7 @@ static char * parse_params(const int argc, char ** argv)
  */
 static int bucket_sort(void)
 {
-  int err = 0; 
+  int err = 0;
 
   init_timers(NUM_ITERATIONS);
 
@@ -187,8 +187,8 @@ static int bucket_sort(void)
   for(unsigned int i = 0; i < (NUM_ITERATIONS + BURN_IN); ++i)
   {
 
-    // Reset timers after burn in 
-    if(i == BURN_IN){ init_timers(NUM_ITERATIONS); } 
+    // Reset timers after burn in
+    if(i == BURN_IN){ init_timers(NUM_ITERATIONS); }
 
     MPI_Barrier(MPI_COMM_WORLD);
 
@@ -211,7 +211,7 @@ static int bucket_sort(void)
     long long int  my_bucket_size;
     KEY_TYPE * my_bucket_keys = exchange_keys(my_global_recv_offsets,
                                               my_global_recv_counts,
-                                              send_offsets, 
+                                              send_offsets,
                                               local_bucket_sizes,
                                               my_local_bucketed_keys,
                                               &my_bucket_size);
@@ -224,7 +224,7 @@ static int bucket_sort(void)
     timer_stop(&timers[TIMER_TOTAL]);
 
     // Only the last iteration is verified
-    if(i == NUM_ITERATIONS) { 
+    if(i == NUM_ITERATIONS) {
       err = verify_results(my_local_key_counts, my_bucket_keys, my_bucket_size);
     }
 
@@ -262,7 +262,7 @@ static KEY_TYPE * make_input(void)
   timer_stop(&timers[TIMER_INPUT]);
 
 #ifdef DEBUG
-  
+
   char msg[1024];
   sprintf(msg,"Rank %d: Initial Keys: ", my_rank);
   for(int i = 0; i < NUM_KEYS_PER_PE; ++i){
@@ -272,7 +272,7 @@ static KEY_TYPE * make_input(void)
   sprintf(msg + strlen(msg),"\n");
   printf("%s",msg);
   fflush(stdout);
-  
+
 #endif
   return my_keys;
 }
@@ -298,7 +298,7 @@ static inline int * count_local_bucket_sizes(KEY_TYPE const * restrict const my_
   timer_stop(&timers[TIMER_BCOUNT]);
 
 #ifdef DEBUG
-  
+
   char msg[1024];
   sprintf(msg,"Rank %d: local bucket sizes: ", my_rank);
   for(int i = 0; i < NUM_BUCKETS; ++i){
@@ -308,7 +308,7 @@ static inline int * count_local_bucket_sizes(KEY_TYPE const * restrict const my_
   sprintf(msg + strlen(msg),"\n");
   printf("%s",msg);
   fflush(stdout);
-  
+
 #endif
 
   return local_bucket_sizes;
@@ -335,13 +335,13 @@ static inline int * compute_local_bucket_offsets(int const * restrict const loca
   int temp = 0;
   for(unsigned int i = 1; i < NUM_BUCKETS; i++){
     temp = local_bucket_offsets[i-1] + local_bucket_sizes[i-1];
-    local_bucket_offsets[i] = temp; 
+    local_bucket_offsets[i] = temp;
     (*send_offsets)[i] = temp;
   }
   timer_stop(&timers[TIMER_BOFFSET]);
 
 #ifdef DEBUG
-  
+
   char msg[1024];
   sprintf(msg,"Rank %d: local bucket offsets: ", my_rank);
   for(int i = 0; i < NUM_BUCKETS; ++i){
@@ -351,7 +351,7 @@ static inline int * compute_local_bucket_offsets(int const * restrict const loca
   sprintf(msg + strlen(msg),"\n");
   printf("%s",msg);
   fflush(stdout);
-  
+
 #endif
   return local_bucket_offsets;
 }
@@ -380,7 +380,7 @@ static inline KEY_TYPE * bucketize_local_keys(KEY_TYPE const * restrict const my
   timer_stop(&timers[TIMER_BUCKETIZE]);
 
 #ifdef DEBUG
-  
+
   char msg[1024];
   sprintf(msg,"Rank %d: local bucketed keys: ", my_rank);
   for(int i = 0; i < NUM_KEYS_PER_PE; ++i){
@@ -390,7 +390,7 @@ static inline KEY_TYPE * bucketize_local_keys(KEY_TYPE const * restrict const my
   sprintf(msg + strlen(msg),"\n");
   printf("%s",msg);
   fflush(stdout);
-  
+
 #endif
   return my_local_bucketed_keys;
 }
@@ -430,7 +430,7 @@ static int * exchange_receive_counts(int const * restrict const local_bucket_siz
 }
 
 /*
- * Computes a prefix sum of the global receive counts to determine the write 
+ * Computes a prefix sum of the global receive counts to determine the write
  * offset for remote PEs into the local receiver array
  */
 static int * compute_receive_offsets(int const * restrict const my_global_recv_counts)
@@ -484,7 +484,7 @@ static inline KEY_TYPE * exchange_keys( int const * restrict const global_recv_o
   KEY_TYPE * restrict const my_bucket_keys = malloc((*my_bucket_size)*sizeof(KEY_TYPE));
 
   MPI_Alltoallv(my_local_bucketed_keys, local_bucket_sizes, send_offsets, MPI_INT,
-                my_bucket_keys, global_recv_counts, global_recv_offsets, MPI_INT, 
+                my_bucket_keys, global_recv_counts, global_recv_offsets, MPI_INT,
                 MPI_COMM_WORLD);
 
   MPI_Barrier(MPI_COMM_WORLD);
@@ -508,12 +508,12 @@ static inline KEY_TYPE * exchange_keys( int const * restrict const global_recv_o
 
 
 /*
- * Counts the occurence of each key in my bucket. 
- * Key indices into the count array are the key's value minus my bucket's 
+ * Counts the occurence of each key in my bucket.
+ * Key indices into the count array are the key's value minus my bucket's
  * minimum key value to allow indexing from 0.
  * my_bucket_keys: All keys in my bucket unsorted [my_rank * BUCKET_WIDTH, (my_rank+1)*BUCKET_WIDTH)
  */
-static inline int * count_local_keys(KEY_TYPE const * restrict const my_bucket_keys, 
+static inline int * count_local_keys(KEY_TYPE const * restrict const my_bucket_keys,
                                           const long long int my_bucket_size)
 {
   int * restrict const my_local_key_counts = malloc(BUCKET_WIDTH * sizeof(int));
@@ -535,7 +535,7 @@ static inline int * count_local_keys(KEY_TYPE const * restrict const my_bucket_k
   timer_stop(&timers[TIMER_SORT]);
 
 #ifdef DEBUG
-  
+
   char msg[4096];
   sprintf(msg,"Rank %d: Bucket Size %lld | Local Key Counts:", my_rank, my_bucket_size);
   for(int i = 0; i < BUCKET_WIDTH; ++i){
@@ -545,18 +545,18 @@ static inline int * count_local_keys(KEY_TYPE const * restrict const my_bucket_k
   sprintf(msg + strlen(msg),"\n");
   printf("%s",msg);
   fflush(stdout);
-  
+
 #endif
 
   return my_local_key_counts;
 }
 
 /*
- * Verifies the correctness of the sort. 
+ * Verifies the correctness of the sort.
  * Ensures all keys are within a PE's bucket boundaries.
  * Ensures the final number of keys is equal to the initial.
  */
-static int verify_results(int const * restrict const my_local_key_counts, 
+static int verify_results(int const * restrict const my_local_key_counts,
                            KEY_TYPE const * restrict const my_local_keys,
                            const long long int my_bucket_size)
 {
@@ -612,11 +612,6 @@ static void log_times(char * log_file)
 {
   FILE * fp = NULL;
 
-  for(int i = 0; i < TIMER_NTIMERS; ++i){
-    timers[i].all_times = gather_rank_times(&timers[i]);
-    timers[i].all_counts = gather_rank_counts(&timers[i]);
-  }
-
   if(my_rank == ROOT_PE)
   {
     int print_names = 0;
@@ -633,11 +628,30 @@ static void log_times(char * log_file)
       print_run_info(fp);
       print_timer_names(fp);
     }
-    print_timer_values(fp);
-
-    report_summary_stats();
 
     fclose(fp);
+  }
+
+  for (unsigned int i = 0; i < NUM_PES; ++i) {
+    if (i == my_rank) {
+      if((fp = fopen(log_file, "a+b"))==NULL){
+        perror("Error opening log file:");
+        exit(1);
+      }
+
+        print_timer_values(fp);
+        fclose(fp);
+      }
+      MPI_Barrier(MPI_COMM_WORLD);
+  }
+
+  for(int i = 0; i < TIMER_NTIMERS; ++i){
+    timers[i].all_averages = gather_rank_times(&timers[i]);
+  }
+
+  if(my_rank == ROOT_PE)
+  {
+    report_summary_stats();
   }
 
 }
@@ -647,23 +661,21 @@ static void log_times(char * log_file)
  */
 static void report_summary_stats(void)
 {
-  
+
   if(timers[TIMER_TOTAL].seconds_iter > 0) {
-    const uint32_t num_records = NUM_PES * timers[TIMER_TOTAL].seconds_iter;
     double temp = 0.0;
-    for(unsigned int i = 0; i < num_records; ++i){
-      temp += timers[TIMER_TOTAL].all_times[i];
+    for(unsigned int i = 0; i < NUM_PES; ++i){
+      temp += timers[TIMER_TOTAL].all_averages[i];
     }
-      printf("Average total time (per PE): %f seconds\n", temp/num_records);
+    printf("Average total time (per PE): %f seconds\n", temp/NUM_PES);
   }
 
   if(timers[TIMER_ATA_KEYS].seconds_iter >0) {
-    const uint32_t num_records = NUM_PES * timers[TIMER_ATA_KEYS].seconds_iter;
     double temp = 0.0;
-    for(unsigned int i = 0; i < num_records; ++i){
-      temp += timers[TIMER_ATA_KEYS].all_times[i];
+    for(unsigned int i = 0; i < NUM_PES; ++i){
+      temp += timers[TIMER_ATA_KEYS].all_averages[i];
     }
-    printf("Average all2all time (per PE): %f seconds\n", temp/num_records);
+    printf("Average all2all time (per PE): %f seconds\n", temp/NUM_PES);
   }
 }
 
@@ -690,7 +702,7 @@ static void print_run_info(FILE * fp)
 {
   fprintf(fp,"MPI\t");
   fprintf(fp,"NUM_PES %" PRIu64 "\t", NUM_PES);
-  fprintf(fp,"Max_Key %" PRIu64 "\t", MAX_KEY_VAL); 
+  fprintf(fp,"Max_Key %" PRIu64 "\t", MAX_KEY_VAL);
   fprintf(fp,"Num_Iters %" PRIu64 "\t", NUM_ITERATIONS);
 
   switch(SCALING_OPTION){
@@ -728,67 +740,55 @@ static void print_run_info(FILE * fp)
 
 /*
  * Prints all of the timining information for an individual PE as a row
- * to the file specificed by 'fp'. 
+ * to the file specificed by 'fp'.
  */
 static void print_timer_values(FILE * fp)
 {
-  unsigned int num_records = NUM_PES * NUM_ITERATIONS; 
+  unsigned int num_records = NUM_PES * NUM_ITERATIONS;
 
   for(unsigned int i = 0; i < num_records; ++i) {
     for(int t = 0; t < TIMER_NTIMERS; ++t){
-      if(timers[t].all_times != NULL){
-        fprintf(fp,"%f\t", timers[t].all_times[i]);
+      if(timers[t].seconds_iter > 0){
+        fprintf(fp,"%f\t", timers[t].seconds[t]);
       }
-      if(timers[t].all_counts != NULL){
-        fprintf(fp,"%u\t", timers[t].all_counts[i]);
+      if(timers[t].count_iter > 0){
+        fprintf(fp,"%u\t", timers[t].count[t]);
       }
     }
     fprintf(fp,"\n");
   }
 }
 
-/* 
+/*
  * Aggregates the per PE timing information
- */ 
+ */
 static double * gather_rank_times(_timer_t * const timer)
 {
   if(timer->seconds_iter > 0) {
 
-    const unsigned int num_records = NUM_PES * timer->seconds_iter;
+    double my_average;
+    double * restrict all_averages = NULL;
+    if (my_rank == ROOT_PE) {
+      all_averages = malloc( NUM_PES * sizeof(double));
+    }
 
-    double * restrict const all_times = malloc( num_records * sizeof(double));
+    double temp = 0.0;
+    for(int i = 0; i < timer->seconds_iter; ++i) {
+      temp += timer->seconds[i];
+    }
+    my_average = temp/(timer->seconds_iter);
 
-    MPI_Allgather(timer->seconds, timer->seconds_iter, MPI_DOUBLE,
-                  all_times, timer->seconds_iter, MPI_DOUBLE,
-                  MPI_COMM_WORLD);
+    MPI_Gather(&my_average, 1, MPI_DOUBLE,
+                  all_averages, 1, MPI_DOUBLE,
+                  ROOT_PE, MPI_COMM_WORLD);
 
-    return all_times;
+    return all_averages;
   }
   else{
     return NULL;
   }
 }
 
-/*
- * Aggregates the per PE timing 'count' information 
- */
-static unsigned int * gather_rank_counts(_timer_t * const timer)
-{
-  if(timer->count_iter > 0){
-    const unsigned int num_records = NUM_PES * timer->count_iter;
-
-    unsigned int * restrict const all_counts = malloc( num_records * sizeof(unsigned int) );
-
-    MPI_Allgather(timer->count, timer->count_iter, MPI_UNSIGNED,
-                  all_counts, timer->count_iter, MPI_UNSIGNED,
-                  MPI_COMM_WORLD);
-
-    return all_counts;
-  }
-  else{
-    return NULL;
-  }
-}
 /*
  * Seeds each rank based on the rank number and time
  */
@@ -801,7 +801,7 @@ static inline pcg32_random_t seed_my_rank(void)
 
 
 /*
- * Tests whether or not a file exists. 
+ * Tests whether or not a file exists.
  * Returns 1 if file exists
  * Returns 0 if file does not exist
  */
@@ -827,7 +827,7 @@ static void create_permutation_array()
 
   permute_array = malloc( NUM_PES * sizeof(int) );
 
-  for(int i = 0; i < NUM_PES; ++i){
+  for(unsigned int i = 0; i < NUM_PES; ++i){
     permute_array[i] = i;
   }
 
