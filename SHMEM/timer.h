@@ -39,7 +39,7 @@ POSSIBILITY OF SUCH DAMAGE.
 typedef struct
 {
   double * seconds;
-  double * all_averages;
+  double * pe_averages;
   unsigned int * count;
   unsigned int num_iters;
   unsigned int seconds_iter;

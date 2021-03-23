@@ -625,9 +625,9 @@ static void log_times(char * log_file)
     fclose(fp);
   }
 
-  for(int i = 0; i < NUM_PES; ++i) {
-    if ( i == shmem_my_pe()) {
-      if((fp = fopen(log_file, "a+b"))==NULL){
+  for(int i = 0; i < shmem_n_pes(); ++i) {
+    if (i == shmem_my_pe()) {
+      if((fp = fopen(log_file, "a+b")) == NULL) {
         perror("Error opening log file:");
         exit(1);
       }
@@ -639,7 +639,7 @@ static void log_times(char * log_file)
   }
 
   for(uint64_t t = 0; t < TIMER_NTIMERS; ++t){
-    timers[t].all_averages = gather_rank_times(&timers[t]);
+    timers[t].pe_averages = gather_rank_times(&timers[t]);
   }
 
   if(shmem_my_pe() == ROOT_PE)
@@ -653,10 +653,15 @@ static void log_times(char * log_file)
  */
 static void report_summary_stats(void)
 {
+  // We're exploiting the fact that each PE has the same number of iterations,
+  // so the average of the averages across all PEs is equal to the average of
+  // the entire collection. However, this would no longer be true if the PEs had
+  // a different number of iterations.
+
   if(timers[TIMER_TOTAL].seconds_iter > 0) {
     double temp = 0.0;
     for(uint64_t i = 0; i < NUM_PES; ++i){
-      temp += timers[TIMER_TOTAL].all_averages[i];
+      temp += timers[TIMER_TOTAL].pe_averages[i];
     }
     printf("Average total time (per PE): %f seconds\n", temp/NUM_PES);
   }
@@ -664,7 +669,7 @@ static void report_summary_stats(void)
   if(timers[TIMER_ATA_KEYS].seconds_iter >0) {
     double temp = 0.0;
     for(uint64_t i = 0; i < NUM_PES; ++i){
-      temp += timers[TIMER_ATA_KEYS].all_averages[i];
+      temp += timers[TIMER_ATA_KEYS].pe_averages[i];
     }
     printf("Average all2all time (per PE): %f seconds\n", temp/NUM_PES);
   }
@@ -765,21 +770,21 @@ static double * gather_rank_times(_timer_t * const timer)
     double * my_average = shmalloc(sizeof(double));
 #endif
     double temp = 0.0;
-    for(int i = 0; i < timer->seconds_iter; i++) {
+    for(unsigned int i = 0; i < timer->seconds_iter; i++) {
       temp += timer->seconds[i];
     }
 
     *my_average = temp/(timer->seconds_iter);
 
-    double * all_averages = shmem_malloc( NUM_PES * sizeof(double));
+    double * pe_averages = shmem_malloc( NUM_PES * sizeof(double));
 
     shmem_barrier_all();
-    shmem_fcollect64(all_averages, my_average, 1, 0, 0, NUM_PES, pSync);
+    shmem_fcollect64(pe_averages, my_average, 1, 0, 0, NUM_PES, pSync);
     shmem_barrier_all();
 
     shmem_free(my_average);
 
-    return all_averages;
+    return pe_averages;
   }
 
   else{
@@ -808,7 +813,7 @@ static void init_shmem_sync_array(long * restrict const pSync)
   }
   shmem_barrier_all();
 }
-;
+
 /*
  * Tests whether or not a file exists.
  * Returns 1 if file exists

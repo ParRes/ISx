@@ -632,7 +632,7 @@ static void log_times(char * log_file)
     fclose(fp);
   }
 
-  for (unsigned int i = 0; i < NUM_PES; ++i) {
+  for (int i = 0; i < comm_size; ++i) {
     if (i == my_rank) {
       if((fp = fopen(log_file, "a+b"))==NULL){
         perror("Error opening log file:");
@@ -646,7 +646,7 @@ static void log_times(char * log_file)
   }
 
   for(int i = 0; i < TIMER_NTIMERS; ++i){
-    timers[i].all_averages = gather_rank_times(&timers[i]);
+    timers[i].pe_averages = gather_rank_times(&timers[i]);
   }
 
   if(my_rank == ROOT_PE)
@@ -661,11 +661,15 @@ static void log_times(char * log_file)
  */
 static void report_summary_stats(void)
 {
+  // We're exploiting the fact that each PE has the same number of iterations,
+  // so the average of the averages across all PEs is equal to the average of
+  // the entire collection. However, this would no longer be true if the PEs had
+  // a different number of iterations.
 
   if(timers[TIMER_TOTAL].seconds_iter > 0) {
     double temp = 0.0;
     for(unsigned int i = 0; i < NUM_PES; ++i){
-      temp += timers[TIMER_TOTAL].all_averages[i];
+      temp += timers[TIMER_TOTAL].pe_averages[i];
     }
     printf("Average total time (per PE): %f seconds\n", temp/NUM_PES);
   }
@@ -673,7 +677,7 @@ static void report_summary_stats(void)
   if(timers[TIMER_ATA_KEYS].seconds_iter >0) {
     double temp = 0.0;
     for(unsigned int i = 0; i < NUM_PES; ++i){
-      temp += timers[TIMER_ATA_KEYS].all_averages[i];
+      temp += timers[TIMER_ATA_KEYS].pe_averages[i];
     }
     printf("Average all2all time (per PE): %f seconds\n", temp/NUM_PES);
   }
@@ -767,22 +771,22 @@ static double * gather_rank_times(_timer_t * const timer)
   if(timer->seconds_iter > 0) {
 
     double my_average;
-    double * restrict all_averages = NULL;
+    double * restrict pe_averages = NULL;
     if (my_rank == ROOT_PE) {
-      all_averages = malloc( NUM_PES * sizeof(double));
+      pe_averages = malloc(NUM_PES * sizeof(double));
     }
 
     double temp = 0.0;
-    for(int i = 0; i < timer->seconds_iter; ++i) {
+    for(unsigned int i = 0; i < timer->seconds_iter; ++i) {
       temp += timer->seconds[i];
     }
     my_average = temp/(timer->seconds_iter);
 
     MPI_Gather(&my_average, 1, MPI_DOUBLE,
-                  all_averages, 1, MPI_DOUBLE,
-                  ROOT_PE, MPI_COMM_WORLD);
+               pe_averages, 1, MPI_DOUBLE,
+               ROOT_PE, MPI_COMM_WORLD);
 
-    return all_averages;
+    return pe_averages;
   }
   else{
     return NULL;
