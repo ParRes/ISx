@@ -646,7 +646,9 @@ static void log_times(char * log_file)
   }
 
   for(int i = 0; i < TIMER_NTIMERS; ++i){
-    timers[i].pe_averages = gather_rank_times(&timers[i]);
+    timers[i].pe_average_times = gather_rank_times(&timers[i]);
+    // No need gather the average counts since we are not currently reporting them
+    //timers[i].pe_average_counts = gather_rank_counts(&timers[i]);
   }
 
   if(my_rank == ROOT_PE)
@@ -669,7 +671,7 @@ static void report_summary_stats(void)
   if(timers[TIMER_TOTAL].seconds_iter > 0) {
     double temp = 0.0;
     for(unsigned int i = 0; i < NUM_PES; ++i){
-      temp += timers[TIMER_TOTAL].pe_averages[i];
+      temp += timers[TIMER_TOTAL].pe_average_times[i];
     }
     printf("Average total time (per PE): %f seconds\n", temp/NUM_PES);
   }
@@ -677,7 +679,7 @@ static void report_summary_stats(void)
   if(timers[TIMER_ATA_KEYS].seconds_iter >0) {
     double temp = 0.0;
     for(unsigned int i = 0; i < NUM_PES; ++i){
-      temp += timers[TIMER_ATA_KEYS].pe_averages[i];
+      temp += timers[TIMER_ATA_KEYS].pe_average_times[i];
     }
     printf("Average all2all time (per PE): %f seconds\n", temp/NUM_PES);
   }
@@ -770,23 +772,50 @@ static double * gather_rank_times(_timer_t * const timer)
 {
   if(timer->seconds_iter > 0) {
 
-    double my_average;
-    double * restrict pe_averages = NULL;
+    double my_average_time;
+    double * restrict pe_average_times = NULL;
     if (my_rank == ROOT_PE) {
-      pe_averages = malloc(NUM_PES * sizeof(double));
+      pe_average_times = malloc(NUM_PES * sizeof(double));
     }
 
     double temp = 0.0;
     for(unsigned int i = 0; i < timer->seconds_iter; ++i) {
       temp += timer->seconds[i];
     }
-    my_average = temp/(timer->seconds_iter);
+    my_average_time = temp/(timer->seconds_iter);
 
-    MPI_Gather(&my_average, 1, MPI_DOUBLE,
-               pe_averages, 1, MPI_DOUBLE,
+    MPI_Gather(&my_average_time, 1, MPI_DOUBLE,
+               pe_average_times, 1, MPI_DOUBLE,
                ROOT_PE, MPI_COMM_WORLD);
 
-    return pe_averages;
+    return pe_average_times;
+  }
+  else{
+    return NULL;
+  }
+}
+
+static unsigned int * gather_rank_counts(_timer_t * const timer)
+{
+  if(timer->count_iter > 0) {
+
+    unsigned int my_average_count;
+    unsigned int * restrict pe_average_counts = NULL;
+    if (my_rank == ROOT_PE) {
+      pe_average_counts = malloc(NUM_PES * sizeof(unsigned int));
+    }
+
+    unsigned int temp = 0;
+    for(unsigned int i = 0; i < timer->count_iter; ++i) {
+      temp += timer->count[i];
+    }
+    my_average_count = temp/(timer->count_iter);
+
+    MPI_Gather(&my_average_count, 1, MPI_DOUBLE,
+               pe_average_counts, 1, MPI_DOUBLE,
+               ROOT_PE, MPI_COMM_WORLD);
+
+    return pe_average_counts;
   }
   else{
     return NULL;

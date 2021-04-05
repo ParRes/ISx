@@ -639,7 +639,9 @@ static void log_times(char * log_file)
   }
 
   for(uint64_t t = 0; t < TIMER_NTIMERS; ++t){
-    timers[t].pe_averages = gather_rank_times(&timers[t]);
+    timers[t].pe_average_times = gather_rank_times(&timers[t]);
+    // No need gather the average counts since we are not currently reporting them
+    //timers[t].pe_average_counts = gather_rank_counts(&timers[t]);
   }
 
   if(shmem_my_pe() == ROOT_PE)
@@ -661,7 +663,7 @@ static void report_summary_stats(void)
   if(timers[TIMER_TOTAL].seconds_iter > 0) {
     double temp = 0.0;
     for(uint64_t i = 0; i < NUM_PES; ++i){
-      temp += timers[TIMER_TOTAL].pe_averages[i];
+      temp += timers[TIMER_TOTAL].pe_average_times[i];
     }
     printf("Average total time (per PE): %f seconds\n", temp/NUM_PES);
   }
@@ -669,7 +671,7 @@ static void report_summary_stats(void)
   if(timers[TIMER_ATA_KEYS].seconds_iter >0) {
     double temp = 0.0;
     for(uint64_t i = 0; i < NUM_PES; ++i){
-      temp += timers[TIMER_ATA_KEYS].pe_averages[i];
+      temp += timers[TIMER_ATA_KEYS].pe_average_times[i];
     }
     printf("Average all2all time (per PE): %f seconds\n", temp/NUM_PES);
   }
@@ -765,26 +767,63 @@ static double * gather_rank_times(_timer_t * const timer)
     shmem_barrier_all();
 
 #ifdef OPENSHMEM_COMPLIANT
-    double * my_average = shmem_malloc(sizeof(double));
+    double * my_average_time = shmem_malloc(sizeof(double));
 #else
-    double * my_average = shmalloc(sizeof(double));
+    double * my_average_time = shmalloc(sizeof(double));
 #endif
     double temp = 0.0;
     for(unsigned int i = 0; i < timer->seconds_iter; i++) {
       temp += timer->seconds[i];
     }
 
-    *my_average = temp/(timer->seconds_iter);
+    *my_average_time = temp/(timer->seconds_iter);
 
-    double * pe_averages = shmem_malloc( NUM_PES * sizeof(double));
+    double * pe_average_times = shmem_malloc( NUM_PES * sizeof(double));
 
     shmem_barrier_all();
-    shmem_fcollect64(pe_averages, my_average, 1, 0, 0, NUM_PES, pSync);
+    shmem_fcollect64(pe_average_times, my_average_time, 1, 0, 0, NUM_PES, pSync);
     shmem_barrier_all();
 
-    shmem_free(my_average);
+    shmem_free(my_average_time);
 
-    return pe_averages;
+    return pe_average_times;
+  }
+
+  else{
+    return NULL;
+  }
+}
+
+/*
+ * Aggregates the per PE timing 'count' information
+ */
+static unsigned int * gather_rank_counts(_timer_t * const timer)
+{
+  if(timer->count_iter > 0) {
+
+    shmem_barrier_all();
+
+#ifdef OPENSHMEM_COMPLIANT
+    unsigned int * my_average_count = shmem_malloc(sizeof(unsigned int));
+#else
+    unsigned int * my_average_count = shmalloc(sizeof(unsigned int));
+#endif
+    unsigned int temp = 0;
+    for(unsigned int i = 0; i < timer->count_iter; i++) {
+      temp += timer->count[i];
+    }
+
+    *my_average_count = temp/(timer->count_iter);
+
+    unsigned int * pe_average_counts = shmem_malloc( NUM_PES * sizeof(unsigned int));
+
+    shmem_barrier_all();
+    shmem_fcollect32(pe_average_counts, my_average_count, 1, 0, 0, NUM_PES, pSync);
+    shmem_barrier_all();
+
+    shmem_free(my_average_count);
+
+    return pe_average_counts;
   }
 
   else{
