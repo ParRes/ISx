@@ -795,6 +795,9 @@ static double * gather_rank_times(_timer_t * const timer)
   }
 }
 
+/*
+ * Aggregates the per PE timing 'count' information
+ */
 static unsigned int * gather_rank_counts(_timer_t * const timer)
 {
   if(timer->count_iter > 0) {

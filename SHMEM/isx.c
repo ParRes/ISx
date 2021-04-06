@@ -778,10 +778,10 @@ static double * gather_rank_times(_timer_t * const timer)
 
     *my_average_time = temp/(timer->seconds_iter);
 
-    double * pe_average_times = shmem_malloc( NUM_PES * sizeof(double));
+    double * pe_average_times = shmem_malloc(NUM_PES * sizeof(double));
 
     shmem_barrier_all();
-    shmem_fcollect64(pe_average_times, my_average_time, 1, 0, 0, NUM_PES, pSync);
+    shmem_double_fcollect(SHMEM_TEAM_WORLD, pe_average_times, my_average_time, 1);
     shmem_barrier_all();
 
     shmem_free(my_average_time);
@@ -815,10 +815,10 @@ static unsigned int * gather_rank_counts(_timer_t * const timer)
 
     *my_average_count = temp/(timer->count_iter);
 
-    unsigned int * pe_average_counts = shmem_malloc( NUM_PES * sizeof(unsigned int));
+    unsigned int * pe_average_counts = shmem_malloc(NUM_PES * sizeof(unsigned int));
 
     shmem_barrier_all();
-    shmem_fcollect32(pe_average_counts, my_average_count, 1, 0, 0, NUM_PES, pSync);
+    shmem_uint_fcollect(SHMEM_TEAM_WORLD, pe_average_counts, my_average_count, 1);
     shmem_barrier_all();
 
     shmem_free(my_average_count);
