@@ -775,7 +775,7 @@ static double * gather_rank_times(_timer_t * const timer)
     double my_average_time;
     double * restrict pe_average_times = NULL;
     if (my_rank == ROOT_PE) {
-      pe_average_times = malloc(NUM_PES * sizeof(double));
+      pe_average_times = (double *)malloc(NUM_PES * sizeof(double));
     }
 
     double temp = 0.0;
@@ -805,7 +805,7 @@ static unsigned int * gather_rank_counts(_timer_t * const timer)
     unsigned int my_average_count;
     unsigned int * restrict pe_average_counts = NULL;
     if (my_rank == ROOT_PE) {
-      pe_average_counts = malloc(NUM_PES * sizeof(unsigned int));
+      pe_average_counts = (unsigned int *)malloc(NUM_PES * sizeof(unsigned int));
     }
 
     unsigned int temp = 0;
