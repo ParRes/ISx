@@ -1,32 +1,32 @@
 /*
 Copyright (c) 2015, Intel Corporation
 
-Redistribution and use in source and binary forms, with or without 
-modification, are permitted provided that the following conditions 
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
 are met:
 
-    * Redistributions of source code must retain the above copyright 
+    * Redistributions of source code must retain the above copyright
       notice, this list of conditions and the following disclaimer.
-    * Redistributions in binary form must reproduce the above 
-      copyright notice, this list of conditions and the following 
-      disclaimer in the documentation and/or other materials provided 
+    * Redistributions in binary form must reproduce the above
+      copyright notice, this list of conditions and the following
+      disclaimer in the documentation and/or other materials provided
       with the distribution.
-    * Neither the name of Intel Corporation nor the names of its 
-      contributors may be used to endorse or promote products 
-      derived from this software without specific prior written 
+    * Neither the name of Intel Corporation nor the names of its
+      contributors may be used to endorse or promote products
+      derived from this software without specific prior written
       permission.
 
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS 
-"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT 
-LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS 
-FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE 
-COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, 
-INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, 
-BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; 
-LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER 
-CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT 
-LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN 
-ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE 
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 */
 #include <shmem.h>
@@ -85,7 +85,7 @@ int main(const int argc,  char ** argv)
 #endif
 
 
-  init_shmem_sync_array(pSync); 
+  init_shmem_sync_array(pSync);
 
   char * log_file = parse_params(argc, argv);
 
@@ -132,7 +132,7 @@ static char * parse_params(const int argc, char ** argv)
   switch(SCALING_OPTION){
     case STRONG:
       {
-        TOTAL_KEYS = (uint64_t) strtoull(argv[1], NULL, 10);        
+        TOTAL_KEYS = (uint64_t) strtoull(argv[1], NULL, 10);
         NUM_KEYS_PER_PE = (uint64_t) ceil((double)TOTAL_KEYS/NUM_PES);
         sprintf(scaling_msg,"STRONG");
         break;
@@ -140,15 +140,15 @@ static char * parse_params(const int argc, char ** argv)
 
     case WEAK:
       {
-        NUM_KEYS_PER_PE = (uint64_t) (strtoull(argv[1], NULL, 10));     
+        NUM_KEYS_PER_PE = (uint64_t) (strtoull(argv[1], NULL, 10));
         sprintf(scaling_msg,"WEAK");
         break;
       }
 
     case WEAK_ISOBUCKET:
       {
-        NUM_KEYS_PER_PE = (uint64_t) (strtoull(argv[1], NULL, 10));     
-        BUCKET_WIDTH = ISO_BUCKET_WIDTH; 
+        NUM_KEYS_PER_PE = (uint64_t) (strtoull(argv[1], NULL, 10));
+        BUCKET_WIDTH = ISO_BUCKET_WIDTH;
         MAX_KEY_VAL = (uint64_t) (NUM_PES * BUCKET_WIDTH);
         sprintf(scaling_msg,"WEAK_ISOBUCKET");
         break;
@@ -172,7 +172,7 @@ static char * parse_params(const int argc, char ** argv)
   assert(MAX_KEY_VAL > NUM_PES);
   assert(NUM_BUCKETS > 0);
   assert(BUCKET_WIDTH > 0);
-  
+
   if(shmem_my_pe() == 0){
     printf("ISx v%1d.%1d\n",MAJOR_VERSION_NUMBER,MINOR_VERSION_NUMBER);
 #ifdef PERMUTE
@@ -209,8 +209,8 @@ static int bucket_sort(void)
   for(uint64_t i = 0; i < (NUM_ITERATIONS + BURN_IN); ++i)
   {
 
-    // Reset timers after burn in 
-    if(i == BURN_IN){ init_timers(NUM_ITERATIONS); } 
+    // Reset timers after burn in
+    if(i == BURN_IN){ init_timers(NUM_ITERATIONS); }
 
     shmem_barrier_all();
 
@@ -226,7 +226,7 @@ static int bucket_sort(void)
 
     KEY_TYPE * my_local_bucketed_keys =  bucketize_local_keys(my_keys, local_bucket_offsets);
 
-    KEY_TYPE * my_bucket_keys = exchange_keys(send_offsets, 
+    KEY_TYPE * my_bucket_keys = exchange_keys(send_offsets,
                                               local_bucket_sizes,
                                               my_local_bucketed_keys);
 
@@ -239,7 +239,7 @@ static int bucket_sort(void)
     timer_stop(&timers[TIMER_TOTAL]);
 
     // Only the last iteration is verified
-    if(i == NUM_ITERATIONS) { 
+    if(i == NUM_ITERATIONS) {
       err = verify_results(my_local_key_counts, my_bucket_keys);
     }
 
@@ -360,7 +360,7 @@ static inline int * compute_local_bucket_offsets(int const * restrict const loca
   int temp = 0;
   for(uint64_t i = 1; i < NUM_BUCKETS; i++){
     temp = local_bucket_offsets[i-1] + local_bucket_sizes[i-1];
-    local_bucket_offsets[i] = temp; 
+    local_bucket_offsets[i] = temp;
     (*send_offsets)[i] = temp;
   }
   timer_stop(&timers[TIMER_BOFFSET]);
@@ -437,8 +437,8 @@ static inline KEY_TYPE * exchange_keys(int const * restrict const send_offsets,
 
   // Keys destined for local key buffer can be written with memcpy
   const long long int write_offset_into_self = shmem_longlong_fadd(&receive_offset, (long long int)local_bucket_sizes[my_rank], my_rank);
-  memcpy(&my_bucket_keys[write_offset_into_self], 
-         &my_local_bucketed_keys[send_offsets[my_rank]], 
+  memcpy(&my_bucket_keys[write_offset_into_self],
+         &my_local_bucketed_keys[send_offsets[my_rank]],
          local_bucket_sizes[my_rank]*sizeof(KEY_TYPE));
 
 
@@ -465,9 +465,9 @@ static inline KEY_TYPE * exchange_keys(int const * restrict const send_offsets,
         my_rank, target_pe, write_offset_into_target, read_offset_from_self, my_send_size);
 #endif
 
-    shmem_int_put(&(my_bucket_keys[write_offset_into_target]), 
-                  &(my_local_bucketed_keys[read_offset_from_self]), 
-                  my_send_size, 
+    shmem_int_put(&(my_bucket_keys[write_offset_into_target]),
+                  &(my_local_bucketed_keys[read_offset_from_self]),
+                  my_send_size,
                   target_pe);
 
     total_keys_sent += my_send_size;
@@ -483,7 +483,7 @@ static inline KEY_TYPE * exchange_keys(int const * restrict const send_offsets,
 #ifdef DEBUG
   wait_my_turn();
   char msg[1024];
-  sprintf(msg,"Rank %d: Bucket Size %lld | Total Keys Sent: %u | Keys after exchange:", 
+  sprintf(msg,"Rank %d: Bucket Size %lld | Total Keys Sent: %u | Keys after exchange:",
                         my_rank, receive_offset, total_keys_sent);
   for(long long int i = 0; i < receive_offset; ++i){
     if(i < PRINT_MAX)
@@ -500,8 +500,8 @@ static inline KEY_TYPE * exchange_keys(int const * restrict const send_offsets,
 
 
 /*
- * Counts the occurence of each key in my bucket. 
- * Key indices into the count array are the key's value minus my bucket's 
+ * Counts the occurence of each key in my bucket.
+ * Key indices into the count array are the key's value minus my bucket's
  * minimum key value to allow indexing from 0.
  * my_bucket_keys: All keys in my bucket unsorted [my_rank * BUCKET_WIDTH, (my_rank+1)*BUCKET_WIDTH)
  */
@@ -544,7 +544,7 @@ static inline int * count_local_keys(KEY_TYPE const * restrict const my_bucket_k
 }
 
 /*
- * Verifies the correctness of the sort. 
+ * Verifies the correctness of the sort.
  * Ensures all keys are within a PE's bucket boundaries.
  * Ensures the final number of keys is equal to the initial.
  */
@@ -606,11 +606,6 @@ static void log_times(char * log_file)
 {
   FILE * fp = NULL;
 
-  for(uint64_t i = 0; i < TIMER_NTIMERS; ++i){
-    timers[i].all_times = gather_rank_times(&timers[i]);
-    timers[i].all_counts = gather_rank_counts(&timers[i]);
-  }
-
   if(shmem_my_pe() == ROOT_PE)
   {
     int print_names = 0;
@@ -627,13 +622,32 @@ static void log_times(char * log_file)
       print_run_info(fp);
       print_timer_names(fp);
     }
-    print_timer_values(fp);
-
-    report_summary_stats();
-
     fclose(fp);
   }
 
+  for(int i = 0; i < shmem_n_pes(); ++i) {
+    if (i == shmem_my_pe()) {
+      if((fp = fopen(log_file, "a+b")) == NULL) {
+        perror("Error opening log file:");
+        exit(1);
+      }
+
+      print_timer_values(fp);
+      fclose(fp);
+    }
+    shmem_barrier_all();
+  }
+
+  for(uint64_t t = 0; t < TIMER_NTIMERS; ++t){
+    timers[t].pe_average_times = gather_rank_times(&timers[t]);
+    // No need gather the average counts since we are not currently reporting them
+    //timers[t].pe_average_counts = gather_rank_counts(&timers[t]);
+  }
+
+  if(shmem_my_pe() == ROOT_PE)
+  {
+    report_summary_stats();
+  }
 }
 
 /*
@@ -641,23 +655,25 @@ static void log_times(char * log_file)
  */
 static void report_summary_stats(void)
 {
-  
+  // We're exploiting the fact that each PE has the same number of iterations,
+  // so the average of the averages across all PEs is equal to the average of
+  // the entire collection. However, this would no longer be true if the PEs had
+  // a different number of iterations.
+
   if(timers[TIMER_TOTAL].seconds_iter > 0) {
-    const uint32_t num_records = NUM_PES * timers[TIMER_TOTAL].seconds_iter;
     double temp = 0.0;
-    for(uint64_t i = 0; i < num_records; ++i){
-      temp += timers[TIMER_TOTAL].all_times[i];
+    for(uint64_t i = 0; i < NUM_PES; ++i){
+      temp += timers[TIMER_TOTAL].pe_average_times[i];
     }
-      printf("Average total time (per PE): %f seconds\n", temp/num_records);
+    printf("Average total time (per PE): %f seconds\n", temp/NUM_PES);
   }
 
   if(timers[TIMER_ATA_KEYS].seconds_iter >0) {
-    const uint32_t num_records = NUM_PES * timers[TIMER_ATA_KEYS].seconds_iter;
     double temp = 0.0;
-    for(uint64_t i = 0; i < num_records; ++i){
-      temp += timers[TIMER_ATA_KEYS].all_times[i];
+    for(uint64_t i = 0; i < NUM_PES; ++i){
+      temp += timers[TIMER_ATA_KEYS].pe_average_times[i];
     }
-    printf("Average all2all time (per PE): %f seconds\n", temp/num_records);
+    printf("Average all2all time (per PE): %f seconds\n", temp/NUM_PES);
   }
 }
 
@@ -684,7 +700,7 @@ static void print_run_info(FILE * fp)
 {
   fprintf(fp,"SHMEM\t");
   fprintf(fp,"NUM_PES %" PRIu64 "\t", NUM_PES);
-  fprintf(fp,"Max_Key %" PRIu64 "\t", MAX_KEY_VAL); 
+  fprintf(fp,"Max_Key %" PRIu64 "\t", MAX_KEY_VAL);
   fprintf(fp,"Num_Iters %" PRIu64 "\t", NUM_ITERATIONS);
 
   switch(SCALING_OPTION){
@@ -722,106 +738,99 @@ static void print_run_info(FILE * fp)
 
 /*
  * Prints all of the timining information for an individual PE as a row
- * to the file specificed by 'fp'. 
+ * to the file specificed by 'fp'.
  */
 static void print_timer_values(FILE * fp)
 {
-  unsigned int num_records = NUM_PES * NUM_ITERATIONS; 
-
-  for(uint64_t i = 0; i < num_records; ++i) {
+  for(uint64_t i = 0; i < NUM_ITERATIONS; ++i) {
     for(int t = 0; t < TIMER_NTIMERS; ++t){
-      if(timers[t].all_times != NULL){
-        fprintf(fp,"%f\t", timers[t].all_times[i]);
+      if(timers[t].seconds_iter > 0){
+        fprintf(fp,"%f\t", timers[t].seconds[i]);
       }
-      if(timers[t].all_counts != NULL){
-        fprintf(fp,"%u\t", timers[t].all_counts[i]);
+      if(timers[t].count_iter > 0){
+        fprintf(fp,"%u\t", timers[t].count[i]);
       }
     }
     fprintf(fp,"\n");
   }
 }
 
-/* 
+/*
  * Aggregates the per PE timing information
- */ 
+ */
 static double * gather_rank_times(_timer_t * const timer)
 {
   if(timer->seconds_iter > 0) {
 
     assert(timer->seconds_iter == timer->num_iters);
 
-    const unsigned int num_records = NUM_PES * timer->seconds_iter;
-#ifdef OPENSHMEM_COMPLIANT
-    double * my_times = shmem_malloc(timer->seconds_iter * sizeof(double));
-#else
-    double * my_times = shmalloc(timer->seconds_iter * sizeof(double));
-#endif
-    memcpy(my_times, timer->seconds, timer->seconds_iter * sizeof(double));
-
-#ifdef OPENSHMEM_COMPLIANT
-    double * all_times = shmem_malloc( num_records * sizeof(double));
-#else
-    double * all_times = shmalloc( num_records * sizeof(double));
-#endif
-
-    shmem_barrier_all();
-
-    shmem_fcollect64(all_times, my_times, timer->seconds_iter, 0, 0, NUM_PES, pSync);
     shmem_barrier_all();
 
 #ifdef OPENSHMEM_COMPLIANT
-    shmem_free(my_times);
+    double * my_average_time = shmem_malloc(sizeof(double));
 #else
-    shfree(my_times);
+    double * my_average_time = shmalloc(sizeof(double));
 #endif
+    double temp = 0.0;
+    for(unsigned int i = 0; i < timer->seconds_iter; i++) {
+      temp += timer->seconds[i];
+    }
 
-    return all_times;
+    *my_average_time = temp/(timer->seconds_iter);
+
+    double * pe_average_times = shmem_malloc(NUM_PES * sizeof(double));
+
+    shmem_barrier_all();
+    shmem_double_fcollect(SHMEM_TEAM_WORLD, pe_average_times, my_average_time, 1);
+    shmem_barrier_all();
+
+    shmem_free(my_average_time);
+
+    return pe_average_times;
   }
+
   else{
     return NULL;
   }
 }
 
 /*
- * Aggregates the per PE timing 'count' information 
+ * Aggregates the per PE timing 'count' information
  */
 static unsigned int * gather_rank_counts(_timer_t * const timer)
 {
-  if(timer->count_iter > 0){
-    const unsigned int num_records = NUM_PES * timer->num_iters;
-
-#ifdef OPENSHMEM_COMPLIANT
-    unsigned int * my_counts = shmem_malloc(timer->num_iters * sizeof(unsigned int));
-#else
-    unsigned int * my_counts = shmalloc(timer->num_iters * sizeof(unsigned int));
-#endif
-    memcpy(my_counts, timer->count, timer->num_iters*sizeof(unsigned int));
-
-#ifdef OPENSHMEM_COMPLIANT
-    unsigned int * all_counts = shmem_malloc( num_records * sizeof(unsigned int) );
-#else
-    unsigned int * all_counts = shmalloc( num_records * sizeof(unsigned int) );
-#endif
-
-    shmem_barrier_all();
-
-    shmem_collect32(all_counts, my_counts, timer->num_iters, 0, 0, NUM_PES, pSync);
+  if(timer->count_iter > 0) {
 
     shmem_barrier_all();
 
 #ifdef OPENSHMEM_COMPLIANT
-    shmem_free(my_counts);
+    unsigned int * my_average_count = shmem_malloc(sizeof(unsigned int));
 #else
-    shfree(my_counts);
+    unsigned int * my_average_count = shmalloc(sizeof(unsigned int));
 #endif
+    unsigned int temp = 0;
+    for(unsigned int i = 0; i < timer->count_iter; i++) {
+      temp += timer->count[i];
+    }
 
-    return all_counts;
+    *my_average_count = temp/(timer->count_iter);
+
+    unsigned int * pe_average_counts = shmem_malloc(NUM_PES * sizeof(unsigned int));
+
+    shmem_barrier_all();
+    shmem_uint_fcollect(SHMEM_TEAM_WORLD, pe_average_counts, my_average_count, 1);
+    shmem_barrier_all();
+
+    shmem_free(my_average_count);
+
+    return pe_average_counts;
   }
+
   else{
     return NULL;
   }
-
 }
+
 /*
  * Seeds each rank based on the rank number and time
  */
@@ -845,7 +854,7 @@ static void init_shmem_sync_array(long * restrict const pSync)
 }
 
 /*
- * Tests whether or not a file exists. 
+ * Tests whether or not a file exists.
  * Returns 1 if file exists
  * Returns 0 if file does not exist
  */
